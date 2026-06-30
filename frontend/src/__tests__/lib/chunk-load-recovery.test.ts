@@ -67,7 +67,7 @@ describe("chunk-load-recovery", () => {
 
     expect(mainSource).not.toContain("if (updateRequired) {");
     expect(mainSource).toContain("<RouterProvider router={router} />");
-    expect(mainSource).toContain("updateRequired ? <AppUpdateRequired /> : null");
+    expect(mainSource).toContain("updateRequired ? <AppUpdateRequired /> : <AppUpdateAvailable />");
     expect(updatePromptSource).toContain("fixed inset-0");
   });
 });

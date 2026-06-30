@@ -5,11 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Header } from "@/components/layout/header";
 
-const runtimeState = vi.hoisted(() => ({ authRequired: true }));
+const runtimeState = vi.hoisted(() => ({ authRequired: true, isCe: false }));
 const authState = vi.hoisted(() => ({ username: "local", logout: vi.fn() }));
 
 vi.mock("@/lib/runtime-config", () => ({
   authRequired: () => runtimeState.authRequired,
+  isCeRuntime: () => runtimeState.isCe,
+}));
+
+vi.mock("@/lib/queries/model-gateway", () => ({
+  useModelGatewayConfig: () => ({ data: undefined }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
