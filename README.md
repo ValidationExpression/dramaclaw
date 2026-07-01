@@ -142,7 +142,7 @@ And although it's built around drama production, the same pipeline — character
 ## Core Capabilities
 
 <p align="center">
-  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/oss-launch.jpg?v=2" width="760" alt="DramaClaw 开源发布 · open-source launch"/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/oss-launch.jpg?v=2" width="760" alt="DramaClaw 源码发布 · source-available launch"/>
 </p>
 
 - **Novel parsing & story graph** &mdash; parse the manuscript into a queryable graph of characters, relationships, and timeline

@@ -141,7 +141,7 @@ DramaClaw 是一条**源码可见的漫剧工业化生产线**。丢进一本原
 ## 核心能力
 
 <p align="center">
-  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/oss-launch.jpg?v=2" width="760" alt="DramaClaw 开源发布"/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/oss-launch.jpg?v=2" width="760" alt="DramaClaw 源码发布"/>
 </p>
 
 - **小说解析与故事图谱** &mdash; 解析原稿，构建可查询的角色、关系、时间线图谱
