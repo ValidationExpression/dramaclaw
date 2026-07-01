@@ -313,7 +313,7 @@ The people building DramaClaw — thank you. 💜
 
 ## License
 
-[Elastic License 2.0](./LICENSE). Source available — use, modify, and redistribute freely; the only restriction is that you may not resell the software as a hosted service. **This project is source-available, not OSI-defined open source.** See the [license explainer](./docs/en/license.md).<!-- banned-word-allow -->
+[Elastic License 2.0](./LICENSE). Free to use, modify, and redistribute — the only restriction is that you may not resell the software as a hosted service. See the [license explainer](./docs/en/license.md).
 
 <br/>
 
