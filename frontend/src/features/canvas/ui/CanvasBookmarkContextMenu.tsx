@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { bookmarkIndexToDigit } from "@/features/canvas/domain/viewportBookmarks";
+import { MOD_KEY_LABEL as CMD } from "@/lib/platform";
 
 interface CanvasBookmarkContextMenuProps {
   index: number;
@@ -14,10 +15,6 @@ interface CanvasBookmarkContextMenuProps {
   onClearAll: () => void;
   onClose: () => void;
 }
-
-const IS_MAC =
-  typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent);
-const CMD = IS_MAC ? "⌘" : "Ctrl";
 
 export function CanvasBookmarkContextMenu({
   index,

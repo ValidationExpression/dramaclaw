@@ -976,6 +976,7 @@ frontend/src/lib/media-url.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml
 frontend/src/lib/mention-markers.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/lib/nav-lock.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/lib/observability.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+frontend/src/lib/platform.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/lib/product-manual.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/lib/project-cover.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 frontend/src/lib/project-permissions.ts,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation

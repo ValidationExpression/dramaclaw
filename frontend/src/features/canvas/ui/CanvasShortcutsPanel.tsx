@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MouseLeft, X } from 'lucide-react';
 
+import { platformKeyLabel } from '@/lib/platform';
 import { KeyboardPanIcon, MousePanIcon, TrackpadPanIcon } from './pan-shortcut-icons';
 
 type NoteIcon = ComponentType<{ className?: string }>;
@@ -146,7 +147,9 @@ export function CanvasShortcutsPanel({ onClose }: CanvasShortcutsPanelProps) {
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     {row.keyKeys?.map((key, index) => <Keycap key={`k-${index}`} token={t(key)} />)}
-                    {row.keys?.map((token, index) => <Keycap key={index} token={token} />)}
+                    {row.keys?.map((token, index) => (
+                      <Keycap key={index} token={platformKeyLabel(token)} />
+                    ))}
                     {row.noteIcons ? (
                       <span
                         title={row.noteKey ? t(row.noteKey) : undefined}
