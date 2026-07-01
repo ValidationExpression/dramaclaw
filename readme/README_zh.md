@@ -140,16 +140,24 @@ DramaClaw 是一条**源码可见的漫剧工业化生产线**。丢进一本原
 
 ## 核心能力
 
+<p align="center">
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/oss-launch.jpg?v=2" width="760" alt="DramaClaw 开源发布"/>
+</p>
+
 - **小说解析与故事图谱** &mdash; 解析原稿，构建可查询的角色、关系、时间线图谱
 - **资产库与身份一致性（虾塘）** &mdash; 角色、场景、道具、声线四类资产统一管理；多集之间保持稳定身份，生成角色肖像与单集变体
 - **剧集规划与叙事节奏** &mdash; 自动章节切分、节拍规划、多集叙事弧
 - **剧本生成** &mdash; 多种模式（改编、直译、分镜稿），带审校 / 修复循环
-- **分镜与首帧** &mdash; 按节拍风格化生成图像，网格切分，图像池选优
+- **分镜与首帧** &mdash; 按节拍风格化生成图像，网格切分，图像池选优<br/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/storyboard-sketch.jpg?v=2" width="600" alt="独家线稿草图系统"/>
 - **配音合成** &mdash; 带情绪的语音合成，可切换多家服务商
 - **视频合成与导出** &mdash; 组装剧集，导出视频 + 字幕文件、整套素材包
-- **无限画布（虾画）** &mdash; 节点式可视化创作台，拖入项目资产生成图片 / 视频 / 音频，候选满意再写回主线；主线流水线与画布探索双轨并行
-- **导演世界 / 3GS（场景变体）** &mdash; 可取景的虚拟片场，固定空间结构、人物站位与镜头机位，保证同一场景跨镜头的空间一致性
-- **AI 导演助理（虾导）** &mdash; 对话式制作助手，查询项目进度、推进脚本 / 镜头任务、检查交付完整性并给出下一步建议
+- **无限画布（虾画）** &mdash; 节点式可视化创作台，拖入项目资产生成图片 / 视频 / 音频，候选满意再写回主线；主线流水线与画布探索双轨并行<br/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/dual-mode-workflow.jpg?v=2" width="600" alt="双模式工作流"/>
+- **导演世界 / 3GS（场景变体）** &mdash; 可取景的虚拟片场，固定空间结构、人物站位与镜头机位，保证同一场景跨镜头的空间一致性<br/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/world-model.jpg?v=2" width="600" alt="世界模型"/>
+- **AI 导演助理（虾导）** &mdash; 对话式制作助手，查询项目进度、推进脚本 / 镜头任务、检查交付完整性并给出下一步建议<br/>
+  <img src="https://nfg-web-assets.cdnfg.com/dramaclaw/readme/director-agent.jpg?v=2" width="600" alt="导演智能体"/>
 - **风格模板（虾格）** &mdash; 上传参考图自动解析风格参数，一键应用到整个项目，保证全片视觉风格统一
 - **任务中心（虾条）** &mdash; 后台生成任务的状态、进度、日志与取消 / 重试，长任务支持断点续跑
 
