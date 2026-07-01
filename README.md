@@ -47,7 +47,7 @@ We'll keep tearing down walls.
 
 <br/>
 
-[![License](https://img.shields.io/badge/License-Elastic_2.0-blue.svg)](./LICENSE)
+[![License](https://img.shields.io/badge/License-Elastic_2.0-blue.svg)](./LICENSES/Elastic-2.0.txt)
 [![GitHub stars](https://img.shields.io/github/stars/dramaclaw/dramaclaw?style=social)](https://github.com/dramaclaw/dramaclaw/stargazers)
 [![Release](https://img.shields.io/github/v/release/dramaclaw/dramaclaw?include_prereleases&sort=semver)](https://github.com/dramaclaw/dramaclaw/releases)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
@@ -321,7 +321,7 @@ The people building DramaClaw — thank you. 💜
 
 ## License
 
-[Elastic License 2.0](./LICENSE). Free to use, modify, and redistribute — the only restriction is that you may not resell the software as a hosted service. See the [license explainer](./docs/en/license.md).
+[Elastic License 2.0](./LICENSES/Elastic-2.0.txt). Free to use, modify, and redistribute — the only restriction is that you may not resell the software as a hosted service. See the [license explainer](./docs/en/license.md).
 
 <br/>
 

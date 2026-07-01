@@ -9,6 +9,9 @@ description = "SuperTale Community Edition API and video pipeline"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = "Elastic-2.0"
+# License 正文按 REUSE 惯例只保留在 LICENSES/(无根 LICENSE 副本),显式指向它,
+# 避免 hatchling 默认 glob(LICENSE*)在根目录找不到文件。
+license-files = ["LICENSES/Elastic-2.0.txt"]
 authors = [
     { name = "Eric" }
 ]

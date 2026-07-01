@@ -311,9 +311,9 @@ SPDX-License-Identifier = "Elastic-2.0"
     )
 
 
-def write_license_file() -> None:
-    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8").strip() + "\n"
-    write_text(ROOT / "LICENSES" / "Elastic-2.0.txt", license_text)
+# NOTE: 不再从根 LICENSE 复制生成 LICENSES/Elastic-2.0.txt。license 正文按 REUSE
+# 惯例只以 LICENSES/Elastic-2.0.txt 为唯一权威副本（静态、随仓库提交），避免根目录
+# 再有一份重复的 LICENSE 让 GitHub 多出一个 License 标签。
 
 
 def _inventory_row(path: str) -> dict[str, str]:
@@ -668,7 +668,6 @@ def main() -> None:
     files = run_git_ls_files()
     packages = locked_package_licenses()
     write_reuse_toml()
-    write_license_file()
     write_license_inventory(files)
     write_dependency_reports(packages)
     write_notice(packages)

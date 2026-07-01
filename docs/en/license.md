@@ -3,7 +3,7 @@
 
 # License
 
-DramaClaw Community Edition (CE) is licensed under the [Elastic License 2.0 (ELv2)](../../LICENSE) and is **source available**. This document explains in plain terms what you can and cannot do.
+DramaClaw Community Edition (CE) is licensed under the [Elastic License 2.0 (ELv2)](../../LICENSES/Elastic-2.0.txt) and is **source available**. This document explains in plain terms what you can and cannot do.
 
 ## Is this open source? <!-- banned-word-allow -->
 
@@ -38,4 +38,4 @@ Contributions are governed by the [Contributor Agreement](../../CONTRIBUTING.md#
 
 Email <business@dramaclaw.ai>.
 
-> This document is a plain-language explanation and does not constitute legal advice; the [LICENSE](../../LICENSE) text governs in all cases.
+> This document is a plain-language explanation and does not constitute legal advice; the [LICENSE](../../LICENSES/Elastic-2.0.txt) text governs in all cases.
