@@ -14,6 +14,7 @@ path,license_expression,copyright,evidence
 .github/workflows/dco.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 .github/workflows/ee-terms.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 .github/workflows/frontend.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+.github/workflows/release-images.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 .github/workflows/secret-scan.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 .gitignore,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 .gitleaks.toml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
