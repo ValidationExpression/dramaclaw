@@ -36,10 +36,13 @@ interface PlusButtonProps {
 
 const PLUS_DRAG_THRESHOLD_PX = 5;
 // 磁吸跟随半径：鼠标进入该半径内「+」才开始追随光标，超出即复位回锚点。
-// 需 >= 下方隐形命中区(`-inset-20`)的四角距离(~136px)，否则命中区边角会提前复位。
-const PLUS_MAGNET_RADIUS_PX = 160;
+// 需 >= 下方隐形命中区(`-inset-2`)的四角距离(~34px)，否则命中区边角会提前复位。
+// 刻意收窄：旧值(160/`-inset-20`)的大感应区在画布缩小时会盖到节点本体上，抢走
+// 节点的 pointerdown → 节点拖不动 / 不显示抓手。现在感应区只贴着按钮本身，
+// 「+」的出现仍由节点 hover(onNodeMouseEnter)驱动，不受影响。
+const PLUS_MAGNET_RADIUS_PX = 48;
 // 「+」最多能离锚点多远地追向光标（越大追得越远）。
-const PLUS_MAGNET_MAX_OFFSET_PX = 72;
+const PLUS_MAGNET_MAX_OFFSET_PX = 18;
 // 每帧把当前位移朝目标位移插值的比例（0~1）：越小越「飘」越丝滑、越大越跟手。
 const PLUS_MAGNET_LERP = 0.18;
 // 「+」距节点边缘的基础间距（NodeToolbar offset）。
@@ -153,8 +156,6 @@ function PlusButton({
     [allowedTypes.length, handleType, nodeId, onDragEnd, onDragMove, onDragStart],
   );
 
-  const hoverBridgePlacement = direction === 'right' ? 'right-full' : 'left-full';
-
   // rAF 循环：每帧把 currentOffset 朝 targetOffset 插值，直接写到按钮的 transform。
   // 一旦贴近当前目标（无论目标是原点还是某个静止偏移）就停掉循环——光标静止时
   // 目标不再变，没有可动画的内容；下次 pointermove 会经 ensureMagnetLoop 重启。
@@ -256,22 +257,13 @@ function PlusButton({
         onHoverEnd?.();
       }}
     >
+      {/* 贴着按钮的小命中区(仅做点击容错 + 磁吸感应)。刻意不再朝节点方向外扩，
+          也不再有 node→button 的悬停桥——那些大面积 pointer-events-auto 层在画布
+          缩小时会盖住节点、抢走拖拽。移到「+」的过程靠节点 hover 的 400ms 隐藏
+          延迟兜住(见 Canvas: NODE_SPAWN_PLUS_HIDE_DELAY_MS)。 */}
       <span
         aria-hidden="true"
-        className="pointer-events-auto absolute -inset-20 z-0 rounded-full"
-        onPointerEnter={(event) => {
-          onHoverStart?.();
-          updateMagnetOffset(event);
-        }}
-        onPointerMove={updateMagnetOffset}
-        onPointerLeave={() => {
-          resetMagnetOffset();
-          onHoverEnd?.();
-        }}
-      />
-      <span
-        aria-hidden="true"
-        className={`pointer-events-auto absolute ${hoverBridgePlacement} top-1/2 z-0 h-32 w-8 -translate-y-1/2`}
+        className="pointer-events-auto absolute -inset-2 z-0 rounded-full"
         onPointerEnter={(event) => {
           onHoverStart?.();
           updateMagnetOffset(event);
@@ -343,6 +335,12 @@ export const NodeSpawnPlusOverlay = memo(({
   void FREEZONE_VIEWER_CONTRACT_TYPES;
   const nodes = useCanvasStore((state) => state.nodes);
   const activeOverlayNodeId = useCanvasStore((state) => state.activeOverlayNodeId);
+  // 「+」与节点的间距随画布缩放：NodeToolbar 的 offset 是固定屏幕像素，画布缩小时
+  // 节点变小、这段固定间距相对就显得很远。改成 offset = 基础间距 × zoom，让间距在
+  // 流空间里恒定 —— 缩小时「+」紧贴节点、放大时按比例拉开。留 4px 屏幕下限避免贴到
+  // 连接小球上。
+  const zoom = useStore((state) => state.transform[2]);
+  const toolbarOffset = Math.max(4, PLUS_TOOLBAR_OFFSET * zoom);
   const [renderNodeId, setRenderNodeId] = useState<string | null>(hidden ? null : hoveredNodeId);
   const [isExiting, setIsExiting] = useState(false);
 
@@ -433,7 +431,7 @@ export const NodeSpawnPlusOverlay = memo(({
           isVisible
           position={Position.Right}
           align="center"
-          offset={PLUS_TOOLBAR_OFFSET}
+          offset={toolbarOffset}
           className="pointer-events-auto"
           onPointerEnter={onOverlayHoverStart}
           onPointerLeave={onOverlayHoverEnd}
@@ -458,7 +456,7 @@ export const NodeSpawnPlusOverlay = memo(({
           isVisible
           position={Position.Left}
           align="center"
-          offset={PLUS_TOOLBAR_OFFSET}
+          offset={toolbarOffset}
           className="pointer-events-auto"
           onPointerEnter={onOverlayHoverStart}
           onPointerLeave={onOverlayHoverEnd}

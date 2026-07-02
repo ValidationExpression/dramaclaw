@@ -522,6 +522,17 @@
 
 .react-flow__node {
   border-radius: var(--node-radius);
+  /* 整块节点都可拖（主体没有 nodrag，drag 从任意处都能起手），但过去只有标题栏
+     有抓手光标——画布缩小后标题栏太小，很难对准去拖。这里让 hover 到节点任意位置
+     都显示抓手，明确「可拖」。内部按钮/输入框等交互元素自带 cursor（pointer/text）
+     会就近覆盖，不受影响。 */
+  cursor: grab;
+}
+
+/* 拖动中（React Flow 给被拖节点挂 .dragging）改成握拳。用 .react-flow 祖先选择器
+   抬高优先级，避免被 .selection 等同特异性规则盖掉，与上面平移的处理一致。 */
+.react-flow .react-flow__node.dragging {
+  cursor: grabbing;
 }
 
 .react-flow__node.canvas-node-placement-confirm {

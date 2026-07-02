@@ -16,6 +16,18 @@ interface ZoomScaledToolbarProps {
    * 太小到点不准。
    */
   min?: number;
+  /**
+   * 缩放模式：
+   * - `follow`（默认）：scale = zoom，工具条跟着画布同向缩放（缩小时一起变小）。
+   * - `counter`：scale = clamp(counterMin, 1/zoom, counterMax)，反向缩放——画布
+   *   放大时工具条变小、画布缩小时工具条变大，屏幕上尺寸基本恒定并封顶，避免
+   *   缩到极小时菜单/操作区跟着缩到看不清、或撑到盖住旁边节点。
+   */
+  mode?: 'follow' | 'counter';
+  /** counter 模式下的缩放下限（画布放得很大时不再继续缩小）。 */
+  counterMin?: number;
+  /** counter 模式下的缩放上限（画布缩得很小时不再继续放大，即「封顶」）。 */
+  counterMax?: number;
 }
 
 /**
@@ -31,11 +43,20 @@ interface ZoomScaledToolbarProps {
  * 缩放比例来自根元素的 `--st-canvas-zoom` CSS 变量(由 Canvas 单一写入器维护),
  * 纯 CSS 跟随,不再 useStore 订阅 zoom —— 缩放时本组件不会因 zoom 变化而重渲染。
  */
-export function ZoomScaledToolbar({ children, origin = 'bottom center', min }: ZoomScaledToolbarProps) {
+export function ZoomScaledToolbar({
+  children,
+  origin = 'bottom center',
+  min,
+  mode = 'follow',
+  counterMin = 0.7,
+  counterMax = 1.6,
+}: ZoomScaledToolbarProps) {
   const scale =
-    min !== undefined
-      ? `max(${min}, var(--st-canvas-zoom, 1))`
-      : 'var(--st-canvas-zoom, 1)';
+    mode === 'counter'
+      ? `clamp(${counterMin}, calc(1 / var(--st-canvas-zoom, 1)), ${counterMax})`
+      : min !== undefined
+        ? `max(${min}, var(--st-canvas-zoom, 1))`
+        : 'var(--st-canvas-zoom, 1)';
   return (
     <div style={{ transform: `scale(${scale})`, transformOrigin: origin }}>
       {children}
