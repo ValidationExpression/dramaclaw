@@ -1,3 +1,6 @@
+packages:
+  - "."
+
 # pnpm 11 requires every dependency install/build script to be explicitly reviewed
 # in `allowBuilds`; unreviewed scripts make `pnpm install` fail with
 # ERR_PNPM_IGNORED_BUILDS (this is what broke the Docker `pnpm install` step).

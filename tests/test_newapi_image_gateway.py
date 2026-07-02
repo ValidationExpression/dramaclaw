@@ -1100,6 +1100,7 @@ def test_newapi_reverse_master_can_use_gpt_image2_quality_low(monkeypatch, tmp_p
 
 def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_path):
     import httpx
+    import novelvideo.config as config
     from novelvideo.generators import nanobanana_prop
 
     posted = {}
@@ -1128,10 +1129,12 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_BASE_URL", "http://newapi.test/v1")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_MODEL", "gpt-image-2")
+    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "gpt-image-2")
+    importlib.reload(config)
+    nanobanana_prop = importlib.reload(nanobanana_prop)
     monkeypatch.setattr(
         nanobanana_prop,
         "get_grid_generation_config",
@@ -1162,6 +1165,7 @@ def test_newapi_prop_reference_gpt_image2_sends_quality_medium(monkeypatch, tmp_
 
 def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
     import httpx
+    import novelvideo.config as config
     from novelvideo.generators import nanobanana_prop
 
     posted = {}
@@ -1188,10 +1192,12 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
             return FakeResponse()
 
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_BASE_URL", "http://newapi.test/v1")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_MODEL", "nano-banana-2")
+    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "nano-banana-2")
+    importlib.reload(config)
+    nanobanana_prop = importlib.reload(nanobanana_prop)
     monkeypatch.setattr(
         nanobanana_prop,
         "get_grid_generation_config",
@@ -1218,15 +1224,18 @@ def test_newapi_prop_reference_nanobanana2_omits_quality(monkeypatch, tmp_path):
 
 
 def test_newapi_prop_reference_reraises_insufficient_credit(monkeypatch, tmp_path):
+    import novelvideo.config as config
     from novelvideo.generators import nanobanana_prop
 
     async def fake_call_newapi_image_api(**_kwargs):
         raise InsufficientCreditsError(user_id="usr_1", cost=5, balance=0)
 
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_API_KEY", "newapi-token")
-    monkeypatch.setattr(nanobanana_prop, "NEWAPI_BASE_URL", "http://newapi.test/v1")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_PROVIDER", "newapi")
-    monkeypatch.setattr(nanobanana_prop, "PROP_REF_IMAGE_MODEL", "gpt-image-2")
+    monkeypatch.setenv("NEWAPI_API_KEY", "newapi-token")
+    monkeypatch.setenv("NEWAPI_BASE_URL", "http://newapi.test/v1")
+    monkeypatch.setenv("PROP_REF_IMAGE_PROVIDER", "newapi")
+    monkeypatch.setenv("PROP_REF_IMAGE_MODEL", "gpt-image-2")
+    importlib.reload(config)
+    nanobanana_prop = importlib.reload(nanobanana_prop)
     monkeypatch.setattr(nanobanana_prop, "_call_newapi_image_api", fake_call_newapi_image_api)
     monkeypatch.setattr(
         nanobanana_prop,
