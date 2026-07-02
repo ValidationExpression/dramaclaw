@@ -38,6 +38,7 @@ import {
   resolveNodeDisplayName,
 } from '@/features/canvas/domain/nodeDisplay';
 import { canvasEventBus } from '@/features/canvas/application/canvasServices';
+import { isVideoFile, VIDEO_FILE_ACCEPT } from '@/features/canvas/application/videoFileTypes';
 import { NodeHeader, NODE_HEADER_FLOATING_POSITION_CLASS } from '@/features/canvas/ui/NodeHeader';
 import { NodeResizeHandle } from '@/features/canvas/ui/NodeResizeHandle';
 import {
@@ -101,14 +102,22 @@ function resolveDroppedMediaFile(event: DragEvent<HTMLElement>): File | null {
     return directFile;
   }
 
-  const item = Array.from(event.dataTransfer.items || []).find(
-    (candidate) =>
-      candidate.kind === 'file' &&
-      (candidate.type.startsWith('image/') ||
-        candidate.type.startsWith('video/') ||
-        candidate.type.startsWith('audio/'))
+  // items[].type 对 .mxf 等专业容器也是空串，先 MIME 粗筛（图片/音频），再对
+  // 文件项用扩展名兜住无 MIME 的视频容器。
+  const items = Array.from(event.dataTransfer.items || []).filter(
+    (candidate) => candidate.kind === 'file',
   );
-  return item?.getAsFile() ?? null;
+  for (const candidate of items) {
+    if (
+      candidate.type.startsWith('image/') ||
+      candidate.type.startsWith('audio/')
+    ) {
+      return candidate.getAsFile();
+    }
+    const file = candidate.getAsFile();
+    if (file && isVideoFile(file)) return file;
+  }
+  return null;
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -523,7 +532,8 @@ export const UploadNode = memo(({ id, data, selected, width, height }: UploadNod
 
   const handleMediaFile = useCallback(
     async (file: File) => {
-      if (file.type.startsWith('video/')) {
+      // isVideoFile 兜住 .mxf 等 file.type 为空串的容器，避免落到最后被忽略。
+      if (isVideoFile(file)) {
         if (imageOnly) {
           console.warn('[upload-node] image-only node: dropped video ignored');
           return;
@@ -878,7 +888,7 @@ export const UploadNode = memo(({ id, data, selected, width, height }: UploadNod
       <input
         ref={inputRef}
         type="file"
-        accept={imageOnly ? 'image/*' : 'image/*,video/*,audio/*'}
+        accept={imageOnly ? 'image/*' : `image/*,${VIDEO_FILE_ACCEPT},audio/*`}
         className="hidden"
         onChange={handleFileChange}
       />

@@ -71,6 +71,7 @@ import {
   isPresetManagedNode,
 } from '@/features/canvas/domain/mainlineNodeFlags';
 import { prepareNodeImage } from '@/features/canvas/application/imageData';
+import { isVideoFile } from '@/features/canvas/application/videoFileTypes';
 import { uploadLocalImageToBackend } from '@/features/canvas/application/uploadToolOutput';
 import {
   buildGenerationErrorReport,
@@ -469,7 +470,8 @@ function collectDroppedMediaFiles(dataTransfer: DataTransfer): File[] {
   return Array.from(files).filter(
     (file) =>
       file.type.startsWith('image/') ||
-      file.type.startsWith('video/') ||
+      // isVideoFile 兜住 .mxf 等 file.type 为空串的专业容器（后续 ffmpeg 转码）。
+      isVideoFile(file) ||
       file.type.startsWith('audio/')
   );
 }

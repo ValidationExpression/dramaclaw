@@ -16,6 +16,9 @@
   "dependencies": {
     "@base-ui/react": "^1.3.0",
     "@breezystack/lamejs": "^1.2.7",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "@gsap/react": "^2.1.2",
@@ -44,6 +47,7 @@
     "konva": "^10.3.0",
     "ky": "^2.0.0",
     "lucide-react": "^1.8.0",
+    "mediabunny": "^1.50.0",
     "ogl": "^1.0.11",
     "playcanvas": "^2.18.2",
     "react": "^19.1.0",

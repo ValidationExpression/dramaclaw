@@ -89,6 +89,12 @@ export default defineConfig(({ mode }) => {
     worker: {
       format: "es",
     },
+    optimizeDeps: {
+      // @ffmpeg/ffmpeg 内部用 `new Worker(new URL("./worker.js", import.meta.url))`
+      // 起 worker；被 esbuild 预打包后 import.meta.url 指向合并产物，worker.js
+      // 404，load() 永远挂起（仅 dev 受影响，prod 走 Rollup 正常）。排除预打包。
+      exclude: ["@ffmpeg/ffmpeg", "@ffmpeg/util"],
+    },
     server: {
       host: true,
       port: 5173,
