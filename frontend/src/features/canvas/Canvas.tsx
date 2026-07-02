@@ -37,6 +37,7 @@ import '@xyflow/react/dist/style.css';
 import { useShallow } from 'zustand/react/shallow';
 
 import { CreditDisplayHiddenProvider } from '@/components/credits/credit-visual';
+import { isCeRuntime } from '@/lib/runtime-config';
 import { resolveAbsolutePosition, useCanvasStore } from '@/stores/canvasStore';
 import { useAppStore } from '@/stores/app-store';
 import { getSkillRegistry } from '@/api/skills';
@@ -4367,7 +4368,7 @@ export function Canvas({
   }, [nodePlacementClientPosition, pendingNodePlacement, t]);
 
   return (
-    <CreditDisplayHiddenProvider value={true}>
+    <CreditDisplayHiddenProvider value={isCeRuntime()}>
     <div
       ref={wrapperRef}
       className="relative h-full w-full bg-background"
