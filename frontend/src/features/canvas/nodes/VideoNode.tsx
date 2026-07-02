@@ -199,6 +199,7 @@ import {
   formatCreditCost,
 } from "@/components/credits/credit-visual";
 import { useGenerationCreditCost } from "@/lib/queries/generation-credit-cost";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 type VideoNodeProps = NodeProps & {
   id: string;
@@ -734,13 +735,22 @@ export const VideoNode = memo(
       videoModelsLoading || videoModelsFallback
         ? null
         : (selectedVideoModel?.apiModel ?? null);
+    // Debounce the cost-estimate inputs: dragging the duration slider (and,
+    // to a lesser degree, flipping count/quality/model) churns the query key
+    // and TanStack Query aborts each in-flight request, spraying "Canceled"
+    // rows across the Network tab. Coalesce to one request once the params
+    // settle (~350ms). Primitives only — see useDebouncedValue's contract.
+    const debouncedBackend = useDebouncedValue(videoBackendForCost, 350);
+    const debouncedQuality = useDebouncedValue(quality, 350);
+    const debouncedCount = useDebouncedValue(count, 350);
+    const debouncedDurationSec = useDebouncedValue(durationSec, 350);
     const videoCreditCost = useGenerationCreditCost(
       "video_backend",
-      videoBackendForCost,
+      debouncedBackend,
       {
         surface: "canvas",
-        params: { resolution: qualityToResolution(quality) },
-        quantity: Math.min(Math.max(count, 1), 4) * durationSec,
+        params: { resolution: qualityToResolution(debouncedQuality) },
+        quantity: Math.min(Math.max(debouncedCount, 1), 4) * debouncedDurationSec,
       },
     );
     const totalCreditCostDisplay = useMemo(() => {
