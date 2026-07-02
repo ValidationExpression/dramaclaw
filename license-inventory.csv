@@ -54,6 +54,8 @@ assets/pipeline.png,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate
 ce-allowlist.toml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 deploy/sandbox/seatbelt_base_policy.sbpl,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 deploy/sandbox/seatbelt_network_policy.sbpl,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+docker-compose.release.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
+docker-compose.selfhosted.release.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 docker-compose.selfhosted.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 docker-compose.yml,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
 docs/README.md,Elastic-2.0,2026 SuperTale contributors,REUSE.toml aggregate annotation
