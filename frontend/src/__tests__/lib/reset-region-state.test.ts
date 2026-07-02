@@ -2,7 +2,10 @@
 // Copyright (c) 2026 ClaymoreLab
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
-import { resetRegionState } from "@/lib/reset-region-state";
+import {
+  resetRegionState,
+  resetUserSessionState,
+} from "@/lib/reset-region-state";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSaveStatusStore } from "@/stores/save-status-store";
 import { useSeenPoolStore } from "@/stores/seen-pool-store";
@@ -55,5 +58,44 @@ describe("resetRegionState", () => {
     resetRegionState({ queryClient: new QueryClient() });
     expect(localStorage.getItem("supertale-app")).not.toBeNull();
     expect(localStorage.getItem("i18nextLng")).toBe("zh");
+  });
+});
+
+describe("resetUserSessionState", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("clears queryClient cache so the next account never sees stale data", () => {
+    // 回归用例：手动退出登录只清了 auth store，React Query 缓存原样留在内存里；
+    // 换账号登录后 projectSummaries 还在 staleTime 内，B 直接看到 A 的项目列表。
+    const qc = new QueryClient();
+    qc.setQueryData(["projectSummaries"], ["A 的项目"]);
+    resetUserSessionState({ queryClient: qc });
+    expect(qc.getQueryData(["projectSummaries"])).toBeUndefined();
+  });
+
+  it("sweeps user-scoped localStorage keys like the region reset does", () => {
+    localStorage.setItem("supertale-seen-pools", "x");
+    localStorage.setItem("st.episode.p1.e1.voice", "edge");
+    resetUserSessionState({ queryClient: new QueryClient() });
+    expect(localStorage.getItem("supertale-seen-pools")).toBeNull();
+    expect(localStorage.getItem("st.episode.p1.e1.voice")).toBeNull();
+  });
+
+  it("preserves the region selection — logout must not force a region re-pick", () => {
+    localStorage.setItem("supertale-region", JSON.stringify({ state: { selectedRegionId: "cn-1" } }));
+    localStorage.setItem("supertale-app", "keep");
+    localStorage.setItem("i18nextLng", "zh");
+    resetUserSessionState({ queryClient: new QueryClient() });
+    expect(localStorage.getItem("supertale-region")).not.toBeNull();
+    expect(localStorage.getItem("supertale-app")).toBe("keep");
+    expect(localStorage.getItem("i18nextLng")).toBe("zh");
+  });
+
+  it("resetRegionState still sweeps the region key (region-switch behavior unchanged)", () => {
+    localStorage.setItem("supertale-region", "x");
+    resetRegionState({ queryClient: new QueryClient() });
+    expect(localStorage.getItem("supertale-region")).toBeNull();
   });
 });

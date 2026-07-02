@@ -7,7 +7,10 @@ import { useRegionStore } from "@/stores/region-store";
 import { tryAcquireNavLock } from "@/lib/nav-lock";
 import { regionAbortController } from "@/lib/region-abort";
 import { clearRegionCookie } from "@/lib/region-cookie";
-import { resetRegionState } from "@/lib/reset-region-state";
+import {
+  resetRegionState,
+  resetUserSessionState,
+} from "@/lib/reset-region-state";
 
 // Module-level QueryClient handle so the afterResponse hook can do the full
 // cross-store + query-cache purge on a 400 no_region. Wired from main.tsx
@@ -95,6 +98,12 @@ export const api = ky.create({
           if (typeof window !== "undefined" && window.location.pathname === "/login") return;
           if (!tryAcquireNavLock()) return;
           await useAuthStore.getState().logout();
+          // 硬跳转会重建内存缓存，但 supertale-* 持久化的用户级 localStorage
+          // （seen-pools / reward-events / episode-workbench 等）会存活到下一个
+          // 账号的会话里 —— 与手动退出同一套用户态清理（保留区域选择）。
+          if (_queryClient) {
+            resetUserSessionState({ queryClient: _queryClient });
+          }
           if (typeof window !== "undefined") {
             window.location.href = "/login";
           }

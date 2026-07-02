@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +8,11 @@ import { Header } from "@/components/layout/header";
 
 const runtimeState = vi.hoisted(() => ({ authRequired: true, isCe: false }));
 const authState = vi.hoisted(() => ({ username: "local", logout: vi.fn() }));
+const resetUserSessionStateMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/reset-region-state", () => ({
+  resetUserSessionState: resetUserSessionStateMock,
+}));
 
 vi.mock("@/lib/runtime-config", () => ({
   authRequired: () => runtimeState.authRequired,
@@ -84,15 +90,24 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   ),
 }));
 
+function renderHeader() {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Header />
+    </QueryClientProvider>,
+  );
+}
+
 describe("Header runtime gating", () => {
   beforeEach(() => {
     runtimeState.authRequired = true;
     authState.username = "local";
     authState.logout.mockReset();
+    resetUserSessionStateMock.mockReset();
   });
 
   it("renders logout in the account panel when runtime requires auth", async () => {
-    render(<Header />);
+    renderHeader();
 
     fireEvent.mouseEnter(screen.getByLabelText("Open account").parentElement!);
 
@@ -102,7 +117,7 @@ describe("Header runtime gating", () => {
   it("hides logout when runtime does not require auth while keeping the local identity", async () => {
     runtimeState.authRequired = false;
 
-    render(<Header />);
+    renderHeader();
 
     fireEvent.mouseEnter(screen.getByLabelText("Open account").parentElement!);
 
@@ -110,5 +125,21 @@ describe("Header runtime gating", () => {
       expect(screen.getByText("local")).toBeInTheDocument();
     });
     expect(screen.queryByText("Log out")).not.toBeInTheDocument();
+  });
+
+  it("purges user-scoped caches after logout so the next account can't see stale data", async () => {
+    // 回归用例：手动退出是 SPA 内部跳转，不清 QueryClient 的话换账号登录后
+    // projectSummaries 还在 staleTime 内，新账号会看到上一个账号的项目列表。
+    authState.logout.mockResolvedValue(undefined);
+
+    renderHeader();
+
+    fireEvent.mouseEnter(screen.getByLabelText("Open account").parentElement!);
+    fireEvent.click(await screen.findByText("Log out"));
+
+    await waitFor(() => {
+      expect(resetUserSessionStateMock).toHaveBeenCalled();
+    });
+    expect(authState.logout).toHaveBeenCalled();
   });
 });

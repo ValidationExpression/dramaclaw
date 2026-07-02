@@ -32,9 +32,11 @@ import {
   PetGalleryDialog,
   type CompanionSelection,
 } from "@/features/companion/petdex/PetGalleryDialog";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useAppStore } from "@/stores/app-store";
 import { authRequired, isCeRuntime } from "@/lib/runtime-config";
+import { resetUserSessionState } from "@/lib/reset-region-state";
 import { useModelGatewayConfig } from "@/lib/queries/model-gateway";
 
 const ACCOUNT_PANEL_TRANSITION_MS = 350;
@@ -59,6 +61,14 @@ export function Header({ showBrand: _showBrand = false }: { showBrand?: boolean 
   const accountAnchorRef = useRef<HTMLDivElement | null>(null);
   const settingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const { username, logout } = useAuthStore();
+  const queryClient = useQueryClient();
+  // 退出登录是 SPA 内部跳转（不刷新页面），必须一并清掉 React Query 缓存和
+  // 用户级 zustand/localStorage 状态，否则换账号登录后 projectSummaries 等
+  // 查询还在 staleTime 内，新账号会直接看到上一个账号的项目列表。
+  const handleLogout = async () => {
+    await logout();
+    resetUserSessionState({ queryClient });
+  };
   const avatarUrl = useAuthStore((s) => s.avatarUrl);
   const companionKind = useAppStore((s) => s.companionKind);
   const companionPet = useAppStore((s) => s.companionPet);
@@ -316,7 +326,7 @@ export function Header({ showBrand: _showBrand = false }: { showBrand?: boolean 
               onLanguageChange={switchLanguage}
               onClose={scheduleCloseAccountPanel}
               onEnter={openAccountPanel}
-              onLogout={showLogout ? () => void logout() : undefined}
+              onLogout={showLogout ? () => void handleLogout() : undefined}
               position={accountPanelPosition}
               visible={accountPanelVisible}
               t={t}
