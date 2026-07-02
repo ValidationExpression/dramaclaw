@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { useCanvasStore } from '@/stores/canvasStore';
 import type { CanvasNode } from '../domain/canvasNodes';
+import { upstreamNodesInEdgeOrder } from '../nodes/referenceOrdering';
 import { extractUpstreamContent } from './graphContentResolver';
 import { extractUpstreamImages } from './graphImageResolver';
 import type { UpstreamContent } from './ports';
@@ -23,13 +24,9 @@ import type { UpstreamContent } from './ports';
  */
 export function useUpstreamNodes(nodeId: string): CanvasNode[] {
   return useCanvasStore(
-    useShallow((state) => {
-      const byId = new Map(state.nodes.map((node) => [node.id, node]));
-      return state.edges
-        .filter((edge) => edge.target === nodeId)
-        .map((edge) => byId.get(edge.source))
-        .filter((node): node is CanvasNode => node !== undefined);
-    }),
+    useShallow((state) =>
+      upstreamNodesInEdgeOrder(state.nodes, state.edges, nodeId),
+    ),
   );
 }
 

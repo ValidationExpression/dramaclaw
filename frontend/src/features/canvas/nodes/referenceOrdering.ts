@@ -9,6 +9,26 @@
  * 作为「未手动排序」节点之间的回退次序。chip 显示、图片N/音频N 编号、提交顺序三处
  * 都走这个函数，保证可视顺序与提交顺序始终一致。
  */
+/**
+ * 按「连线顺序」（edges 数组里边的追加顺序）收集某节点的一跳上游节点。
+ *
+ * UI 编号（@图片N / 引用行 chip，走 useUpstreamNodes）与提交时收集 references
+ * 必须用同一个函数：曾经提交侧按 `state.nodes.filter(...)`（节点创建顺序）收集，
+ * 先创建但后连线的节点会被排到 references 前面，prompt 里的 @图片1 在后端就
+ * 指向另一张图（后端按 references 里图片的位置解释 图片N）。
+ */
+export function upstreamNodesInEdgeOrder<T extends { id: string }>(
+  nodes: T[],
+  edges: ReadonlyArray<{ source: string; target: string }>,
+  targetId: string,
+): T[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return edges
+    .filter((edge) => edge.target === targetId)
+    .map((edge) => byId.get(edge.source))
+    .filter((node): node is T => node !== undefined);
+}
+
 export function sortUpstreamByReferenceOrder<T extends { id: string }>(
   nodes: T[],
   referenceOrder: string[] | undefined,

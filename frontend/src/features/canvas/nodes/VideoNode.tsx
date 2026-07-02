@@ -79,7 +79,10 @@ import {
   joinUpstreamText,
 } from "@/features/canvas/application/graphContentResolver";
 import { useUpstreamNodes } from "@/features/canvas/application/useUpstreamGraph";
-import { sortUpstreamByReferenceOrder } from "@/features/canvas/nodes/referenceOrdering";
+import {
+  sortUpstreamByReferenceOrder,
+  upstreamNodesInEdgeOrder,
+} from "@/features/canvas/nodes/referenceOrdering";
 import { ReferenceTextChip } from "@/features/canvas/nodes/shared/ReferenceTextChip";
 import { ReferenceDetachButton } from "@/features/canvas/nodes/shared/ReferenceDetachButton";
 import { useReferenceMentionSync } from "@/features/canvas/nodes/useReferenceMentionSync";
@@ -1766,14 +1769,13 @@ export const VideoNode = memo(
         : userPrompt;
       try {
         // Walk the current edges/nodes once — used by every non-textToVideo
-        // branch to collect upstream resources.
+        // branch to collect upstream resources. 必须与 UI 编号侧（useUpstreamNodes）
+        // 同源：按连线顺序收集。曾按 state.nodes 顺序（节点创建顺序）收集，先创建
+        // 但后连线的节点会排到 references 前面，@图片N 在后端就指向错位的图。
         const collectUpstream = () => {
           const state = useCanvasStore.getState();
-          const upstreamIds = new Set(
-            state.edges.filter((e) => e.target === id).map((e) => e.source),
-          );
           return sortUpstreamByReferenceOrder(
-            state.nodes.filter((n) => upstreamIds.has(n.id)),
+            upstreamNodesInEdgeOrder(state.nodes, state.edges, id),
             data.referenceOrder,
           );
         };

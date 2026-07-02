@@ -2,7 +2,10 @@
 // Copyright (c) 2026 ClaymoreLab
 import { describe, expect, it } from "vitest";
 
-import { sortUpstreamByReferenceOrder } from "@/features/canvas/nodes/referenceOrdering";
+import {
+  sortUpstreamByReferenceOrder,
+  upstreamNodesInEdgeOrder,
+} from "@/features/canvas/nodes/referenceOrdering";
 
 type Node = { id: string; position?: { y?: number } };
 
@@ -58,5 +61,40 @@ describe("sortUpstreamByReferenceOrder", () => {
     sortUpstreamByReferenceOrder(input, undefined);
 
     expect(ids(input)).toEqual(["x", "y"]);
+  });
+});
+
+describe("upstreamNodesInEdgeOrder", () => {
+  it("returns upstream nodes in edge-connection order, not nodes-array order", () => {
+    // 回归用例：@图片N 编号按连线顺序（useUpstreamNodes），提交曾按 nodes 数组
+    // 顺序收集 —— 先创建但后连线的 gen 节点会被错误排到 references[0]，导致
+    // prompt 里的 @图片1 在后端指向另一张图。两边必须走同一个函数。
+    const nodes: Node[] = [
+      { id: "gen" }, // 创建最早（nodes 数组第 1 位），但最后才连线
+      { id: "upload-a" },
+      { id: "upload-b" },
+    ];
+    const edges = [
+      { source: "upload-a", target: "video" },
+      { source: "upload-b", target: "video" },
+      { source: "gen", target: "video" },
+    ];
+
+    const upstream = upstreamNodesInEdgeOrder(nodes, edges, "video");
+
+    expect(ids(upstream)).toEqual(["upload-a", "upload-b", "gen"]);
+  });
+
+  it("ignores edges targeting other nodes and edges with missing source nodes", () => {
+    const nodes: Node[] = [{ id: "a" }, { id: "b" }];
+    const edges = [
+      { source: "a", target: "video" },
+      { source: "b", target: "other" },
+      { source: "ghost", target: "video" },
+    ];
+
+    const upstream = upstreamNodesInEdgeOrder(nodes, edges, "video");
+
+    expect(ids(upstream)).toEqual(["a"]);
   });
 });
