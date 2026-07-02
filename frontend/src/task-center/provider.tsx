@@ -50,6 +50,24 @@ function invalidateCompletedAssetQueries(
 ): void {
   if (task.status !== "completed") return;
 
+  if (
+    task.task_type === TASK_TYPES.SCRIPT_WRITER ||
+    task.task_type === TASK_TYPES.LITERAL_SCRIPT_WRITER
+  ) {
+    if (task.episode > 0) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.script(projectId, task.episode),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.beats(projectId, task.episode),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.pipelineStatus(projectId),
+      });
+    }
+    return;
+  }
+
   if (task.task_type === TASK_TYPES.BEAT_VIDEO_PROMPT) {
     if (task.episode > 0) {
       queryClient.invalidateQueries({
@@ -289,13 +307,15 @@ export function TaskCenterProvider({
             Number.isNaN(completedAt) ||
             Date.now() - completedAt < TOAST_FRESHNESS_MS;
           const sawRunning = prev !== null && !isTerminal(prev);
+          const firstFreshObservation = isFresh && prev === null;
 
           // Invalidate asset queries for any genuinely-new completion, even
           // when it arrives via a reconnect/hydration snapshot — otherwise an
           // async planner finishing while the stream is down leaves the asset
           // pages stale until a manual reload. Replays stay guarded: an old
-          // completed_at on a task we never saw running is skipped.
-          if (isFresh || sawRunning) {
+          // completed_at on a task we never saw running is skipped, and a
+          // duplicate terminal event for an already-terminal row is ignored.
+          if (firstFreshObservation || sawRunning) {
             invalidateCompletedAssetQueries(queryClient, projectId, task);
           }
 

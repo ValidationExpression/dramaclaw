@@ -411,6 +411,158 @@ describe("TaskCenterProvider", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.beats("demo", 1) });
   });
 
+  it.each(["script_writer", "literal_script_writer"])(
+    "invalidates script data when a %s task completes",
+    async (taskType) => {
+      server.use(
+        http.get("*/api/v1/projects/demo/tasks", () =>
+          HttpResponse.json({
+            ok: true,
+            data: [
+              sampleTask({
+                task_id: `${taskType}-run-1`,
+                task_key: `task:${taskType}:project:demo:1`,
+                task_type: taskType,
+                episode: 1,
+                status: "running",
+              }),
+            ],
+          }),
+        ),
+      );
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      render(<Harness queryClient={queryClient} />);
+      await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
+
+      act(() => {
+        MockEventSource.instances[0].dispatch(
+          "task_updated",
+          sampleTask({
+            task_id: `${taskType}-run-1`,
+            task_key: `task:${taskType}:project:demo:1`,
+            task_type: taskType,
+            episode: 1,
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          }),
+        );
+      });
+
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: queryKeys.script("demo", 1),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: queryKeys.beats("demo", 1),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: queryKeys.pipelineStatus("demo"),
+      });
+    },
+  );
+
+  it("does not invalidate script data for old completed script task replays", async () => {
+    const oldCompletedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    server.use(
+      http.get("*/api/v1/projects/demo/tasks", () =>
+        HttpResponse.json({
+          ok: true,
+          data: [],
+        }),
+      ),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    render(<Harness queryClient={queryClient} />);
+    await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
+
+    act(() => {
+      MockEventSource.instances[0].dispatch(
+        "task_updated",
+        sampleTask({
+          task_id: "script-run-old",
+          task_key: "task:script_writer:project:demo:1",
+          task_type: "script_writer",
+          episode: 1,
+          status: "completed",
+          completed_at: oldCompletedAt,
+        }),
+      );
+    });
+
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.script("demo", 1),
+    });
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.beats("demo", 1),
+    });
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.pipelineStatus("demo"),
+    });
+  });
+
+  it("does not repeatedly invalidate script data for duplicate completed task events", async () => {
+    const completedAt = new Date().toISOString();
+    const completedTask = sampleTask({
+      task_id: "script-run-duplicate",
+      task_key: "task:script_writer:project:demo:1",
+      task_type: "script_writer",
+      episode: 1,
+      status: "completed",
+      completed_at: completedAt,
+    });
+    server.use(
+      http.get("*/api/v1/projects/demo/tasks", () =>
+        HttpResponse.json({
+          ok: true,
+          data: [
+            sampleTask({
+              task_id: "script-run-duplicate",
+              task_key: "task:script_writer:project:demo:1",
+              task_type: "script_writer",
+              episode: 1,
+              status: "running",
+            }),
+          ],
+        }),
+      ),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    render(<Harness queryClient={queryClient} />);
+    await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
+
+    act(() => {
+      MockEventSource.instances[0].dispatch("task_updated", completedTask);
+      MockEventSource.instances[0].dispatch("task_updated", completedTask);
+    });
+
+    expect(
+      invalidateSpy.mock.calls.filter(
+        ([opts]) =>
+          JSON.stringify(opts?.queryKey) === JSON.stringify(queryKeys.script("demo", 1)),
+      ),
+    ).toHaveLength(1);
+    expect(
+      invalidateSpy.mock.calls.filter(
+        ([opts]) =>
+          JSON.stringify(opts?.queryKey) === JSON.stringify(queryKeys.beats("demo", 1)),
+      ),
+    ).toHaveLength(1);
+    expect(
+      invalidateSpy.mock.calls.filter(
+        ([opts]) =>
+          JSON.stringify(opts?.queryKey) === JSON.stringify(queryKeys.pipelineStatus("demo")),
+      ),
+    ).toHaveLength(1);
+  });
+
   it("invalidates prop asset queries when an episode prop planner completes", async () => {
     server.use(
       http.get("*/api/v1/projects/demo/tasks", () =>
