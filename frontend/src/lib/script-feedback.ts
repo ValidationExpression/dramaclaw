@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: Elastic-2.0
 // Copyright (c) 2026 ClaymoreLab
-import type { Beat } from "@/types/episode";
-
 export interface ScriptFeedback {
   type: "success" | "warning";
   key: string;
   values?: Record<string, string | number>;
-}
-
-export function getScriptReloadFeedback(beats: Beat[] | null | undefined): ScriptFeedback {
-  return (beats?.length ?? 0) > 0
-    ? { type: "success", key: "episode.script.scriptReloaded" }
-    : { type: "warning", key: "episode.script.scriptReloadedEmpty" };
 }
 
 export function getScriptReviewFeedback(result: unknown): ScriptFeedback {

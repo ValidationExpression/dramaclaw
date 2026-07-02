@@ -3,36 +3,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getScriptReloadFeedback,
   getScriptReviewFeedback,
   mergeTaskLogs,
 } from "@/lib/script-feedback";
-import type { Beat } from "@/types/episode";
-
-function beat(overrides: Partial<Beat> = {}): Beat {
-  return {
-    beat_number: 1,
-    narration_segment: "旁白",
-    visual_description: "画面",
-    ...overrides,
-  };
-}
 
 describe("script feedback helpers", () => {
-  it("reports a warning when loading script finds no beats", () => {
-    expect(getScriptReloadFeedback([])).toEqual({
-      type: "warning",
-      key: "episode.script.scriptReloadedEmpty",
-    });
-  });
-
-  it("reports success when loading script finds beats", () => {
-    expect(getScriptReloadFeedback([beat()])).toEqual({
-      type: "success",
-      key: "episode.script.scriptReloaded",
-    });
-  });
-
   it("reports review failure from script_writer task result", () => {
     expect(
       getScriptReviewFeedback({

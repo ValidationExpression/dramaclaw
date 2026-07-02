@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FolderOpen, Loader2, Play, Sparkles, Square } from "lucide-react";
+import { Loader2, Play, Sparkles, Square } from "lucide-react";
 
 import {
   isPlanEpisodeAssetsResult,
@@ -24,7 +24,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { backendErrorToastMessage } from "@/lib/api-errors";
 import { TASK_TYPES } from "@/lib/task-types";
 import {
-  getScriptReloadFeedback,
   getScriptReviewFeedback,
   type ScriptFeedback,
 } from "@/lib/script-feedback";
@@ -47,8 +46,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveScopes, trackSave } from "@/stores/save-status-store";
 import type { Character } from "@/types/character";
-import type { OkResponse } from "@/types/api";
-import type { Beat } from "@/types/episode";
 
 const REWRITE_TARGET_BEATS_MIN = 5;
 const REWRITE_TARGET_BEATS_MAX = 80;
@@ -322,17 +319,6 @@ function ScriptTabContent() {
     }
   };
 
-  const handleLoadScript = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.script(project, epNum) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.beats(project, epNum) }),
-    ]);
-    const latestBeats =
-      queryClient.getQueryData<OkResponse<Beat[]>>(queryKeys.beats(project, epNum))
-        ?.data ?? beats;
-    notifyScriptFeedback(getScriptReloadFeedback(latestBeats));
-  };
-
   const handlePlanIdentities = async () => {
     try {
       const res = await planIdentities.mutateAsync(epNum);
@@ -577,15 +563,6 @@ function ScriptTabContent() {
             ) : (
               t("episode.script.generateScript")
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLoadScript}
-            className="h-7 gap-1.5 rounded-[7px] border border-white/[0.12] bg-transparent px-2.5 text-xs font-normal text-foreground/70 hover:bg-white/[0.06] hover:text-foreground [&_svg]:size-3.5"
-          >
-            <FolderOpen className="size-3.5" />
-            {t("episode.script.loadScript")}
           </Button>
         </div>
       </div>
