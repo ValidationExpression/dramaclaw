@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 import { useAuthStore } from "@/stores/auth-store";
+import { humanizeTaskError } from "@/lib/api-errors";
 import { p } from "@/lib/api-path";
 import type { TaskStatus, TaskStreamEvent } from "@/types/task";
 
@@ -116,7 +118,9 @@ export function useTaskStream(options: UseTaskStreamOptions): TaskStreamState {
           onCompleteRef.current?.(data.result);
         } else if (data.status === "failed") {
           cleanup();
-          toast.error(data.error || "Task failed");
+          // Give channel_policy / rate-limit gateway failures a distinct,
+          // readable message instead of the raw "…HTTP 429…body={…}" blob.
+          toast.error(humanizeTaskError(data.error, i18n.t));
           onErrorRef.current?.(data.error || "Task failed");
         } else if (data.status === "cancelled") {
           cleanup();

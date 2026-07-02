@@ -110,6 +110,57 @@ export async function jsonWithBackendError<T>(request: Promise<Response>): Promi
   }
 }
 
+/**
+ * Classify a raw generation-task error string coming back from the model
+ * gateway. Sketch/render/video failures surface as a RuntimeError whose text
+ * embeds the gateway response, e.g.
+ *
+ *   草图重生未生成可用图片（...）: HTTP 429: ...; body={"error":{"code":"huimeng_low_quality_skipped","type":"channel_policy",...}}
+ *
+ * A `channel_policy` rejection is a *route-layer* refusal (the gateway skipped
+ * the channel before dispatching, e.g. low-quality sketch regen), NOT real
+ * upstream throttling — even though it too rides on an HTTP 429. Callers need
+ * to tell the two apart so users don't read a policy block as "try again in a
+ * bit". Order matters: check the policy signal before the bare-429 signal.
+ */
+export type GatewayErrorKind = "channel_policy" | "rate_limit";
+
+export function classifyGatewayError(
+  raw: string | null | undefined,
+): GatewayErrorKind | null {
+  if (!raw) return null;
+  // `"type":"channel_policy"` is the authoritative marker; `_skipped` codes
+  // (huimeng_low_quality_skipped, ...) are the same route-layer family.
+  if (/channel[_-]?policy/i.test(raw) || /_skipped\b/i.test(raw)) {
+    return "channel_policy";
+  }
+  // Genuine upstream limit. `HTTP 429` is how run_core stamps the status.
+  if (/\bHTTP 429\b/.test(raw) || /\b429\b.*rate/i.test(raw)) {
+    return "rate_limit";
+  }
+  return null;
+}
+
+/**
+ * Turn a raw task-error string into a user-facing toast message, giving
+ * `channel_policy` and real rate-limit failures their own explanation instead
+ * of leaking the generic "…未生成可用图片: HTTP 429: …body={…}" blob.
+ */
+export function humanizeTaskError(
+  raw: string | null | undefined,
+  t: TFunction,
+): string {
+  const fallback = raw && raw.trim() ? raw : t("common.error");
+  switch (classifyGatewayError(raw)) {
+    case "channel_policy":
+      return t("common.generationChannelPolicyBlocked", { defaultValue: fallback });
+    case "rate_limit":
+      return t("common.generationRateLimited", { defaultValue: fallback });
+    default:
+      return fallback;
+  }
+}
+
 export function backendErrorToastMessage(error: unknown, t: TFunction): string {
   if (error instanceof ProjectQueueLimitError) {
     const scopeSuffix = error.limitScope === "user" ? "UserFull" : "ProjectFull";

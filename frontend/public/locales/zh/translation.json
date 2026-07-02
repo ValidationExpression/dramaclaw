@@ -1280,6 +1280,8 @@
       "world": "世界",
       "ffmpeg": "合成"
     },
+    "generationChannelPolicyBlocked": "本次生成被模型渠道策略拦截（并非真正限流）——低质量草图重生请求通常会被跳过。请稍后重试，或提高生成质量后再试。",
+    "generationRateLimited": "模型服务暂时限流（HTTP 429），请稍后重试。",
     "refreshed": "内容已刷新",
     "save": "保存",
     "cancel": "取消",

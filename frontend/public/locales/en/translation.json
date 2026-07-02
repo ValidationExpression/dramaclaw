@@ -1280,6 +1280,8 @@
       "world": "world",
       "ffmpeg": "composition"
     },
+    "generationChannelPolicyBlocked": "This request was blocked by the model channel policy (not a real rate limit) — low-quality sketch regeneration requests are typically skipped. Retry later, or raise the generation quality and try again.",
+    "generationRateLimited": "The model service is temporarily rate-limited (HTTP 429). Please retry shortly.",
     "refreshed": "Content refreshed",
     "save": "Save",
     "cancel": "Cancel",
