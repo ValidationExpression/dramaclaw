@@ -35,7 +35,7 @@ deploy/compose/windows/users.json
 .claude/skills/**/*-workspace/
 *.skill
 /scripts/output
-/tools/image-freezone/node_modules
+node_modules/
 /docs/issues
 scripts/incident_drills/.drill.local.env
 .obsidian/
