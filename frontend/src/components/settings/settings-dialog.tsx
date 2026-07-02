@@ -706,7 +706,8 @@ const MEDIA_ROW_GRID =
   "grid grid-cols-[90px_minmax(0,1fr)_150px_minmax(0,1fr)] items-center gap-3";
 
 const EMBEDDING_INTERNAL_MODEL = "DC-cognee-embedding";
-const DEFAULT_EMBEDDING_DIMENSION = 3072;
+const DEFAULT_EMBEDDING_DIMENSION = 1024;
+const DEFAULT_EMBEDDING_BATCH_SIZE = 10;
 
 const FEATURE_PROVIDER_LABELS: Record<FeatureModelProvider, string> = {
   openai: "OpenAI",
@@ -1015,14 +1016,18 @@ function EmbeddingModelBlock({
   const selectedProvider = localModel?.provider ?? "";
   const upstreamModel = localModel?.upstreamModel ?? "";
   const dimension = localModel?.dimension ?? DEFAULT_EMBEDDING_DIMENSION;
-  const batchSize = localModel?.batchSize;
+  const batchSize =
+    localModel === undefined ? DEFAULT_EMBEDDING_BATCH_SIZE : localModel.batchSize;
 
   const updateLocal = (patch: Partial<EmbeddingModelEntry>) => {
     setLocalModel((prev) => ({
       provider: patch.provider ?? prev?.provider ?? configuredProviders[0] ?? "ali",
       upstreamModel: patch.upstreamModel ?? prev?.upstreamModel ?? "",
       dimension: patch.dimension ?? prev?.dimension ?? DEFAULT_EMBEDDING_DIMENSION,
-      batchSize: "batchSize" in patch ? patch.batchSize : prev?.batchSize,
+      batchSize:
+        "batchSize" in patch
+          ? patch.batchSize
+          : prev?.batchSize ?? DEFAULT_EMBEDDING_BATCH_SIZE,
     }));
   };
 

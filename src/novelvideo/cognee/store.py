@@ -24,6 +24,7 @@ with preserve_st_env():
     from cognee.modules.engine.operations.setup import setup
 from rich.console import Console
 from novelvideo.config import get_newapi_reasoning_kwargs
+from novelvideo.official_defaults import DEFAULT_COGNEE_LLM_MODEL
 from novelvideo.sqlite_store import SQLiteStore
 from novelvideo.utils.document_parsers import load_novel_text
 
@@ -1089,7 +1090,8 @@ class CogneeStore:
 只返回 JSON，不要有其他内容。"""
 
             response = await litellm.acompletion(
-                model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+                model=os.environ.get("LLM_MODEL", "").strip()
+                or DEFAULT_COGNEE_LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
                 response_format={"type": "json_object"},
@@ -1586,7 +1588,8 @@ class CogneeStore:
 请直接回复身份编号（如 1、2、3），不要有其他内容。"""
 
             response = await litellm.acompletion(
-                model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+                model=os.environ.get("LLM_MODEL", "").strip()
+                or DEFAULT_COGNEE_LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
                 max_tokens=10,

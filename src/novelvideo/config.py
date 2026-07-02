@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from dotenv import load_dotenv
+from novelvideo.official_defaults import (
+    DEFAULT_TEXT_MODEL_BY_ENV,
+    OFFICIAL_NEWAPI_BASE_URL,
+)
 
 # 加载环境变量（必须在任何其他导入之前）
 load_dotenv()
@@ -160,7 +164,9 @@ def _clean_env_value(name: str | None) -> str | None:
 
 def get_newapi_text_model_name(model_env: str, default_model: str) -> str:
     """Return the logical newAPI text model for a path-specific task."""
-    return _clean_env_value(model_env) or default_model
+    return _clean_env_value(model_env) or DEFAULT_TEXT_MODEL_BY_ENV.get(
+        model_env, default_model
+    )
 
 
 def _get_newapi_text_model_profile(model_name: str):
@@ -505,7 +511,7 @@ INDEXTTS2_FAL_ENDPOINT = os.environ.get(
 )
 INDEXTTS2_TIMEOUT_SECONDS = float(os.environ.get("INDEXTTS2_TIMEOUT_SECONDS", "1800"))
 
-NEWAPI_BASE_URL = os.environ.get("NEWAPI_BASE_URL", "http://localhost:3000/v1")
+NEWAPI_BASE_URL = os.environ.get("NEWAPI_BASE_URL", OFFICIAL_NEWAPI_BASE_URL)
 NEWAPI_API_KEY = os.environ.get("NEWAPI_API_KEY", "")
 
 
@@ -548,7 +554,7 @@ def get_newapi_runtime_credentials(
         or os.environ.get(env_base_url, "").strip().rstrip("/")
         or str(NEWAPI_BASE_URL or "").strip().rstrip("/")
         or os.environ.get("MODEL_BASE_URL", "").strip().rstrip("/")
-        or "http://localhost:3000/v1"
+        or OFFICIAL_NEWAPI_BASE_URL
     )
     return api_key, base_url
 
@@ -647,7 +653,7 @@ OSS_RELAY_SK = os.environ.get("OSS_RELAY_SK", "")
 CLOUDINARY_RELAY_CLOUD_NAME = os.environ.get("CLOUDINARY_RELAY_CLOUD_NAME", "")
 CLOUDINARY_RELAY_API_KEY = os.environ.get("CLOUDINARY_RELAY_API_KEY", "")
 CLOUDINARY_RELAY_API_SECRET = os.environ.get("CLOUDINARY_RELAY_API_SECRET", "")
-CLOUDINARY_RELAY_FOLDER = os.environ.get("CLOUDINARY_RELAY_FOLDER", "relay")
+CLOUDINARY_RELAY_FOLDER = os.environ.get("CLOUDINARY_RELAY_FOLDER", "")
 
 
 def get_style_labels() -> dict[str, str]:

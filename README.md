@@ -291,7 +291,7 @@ The people building DramaClaw — thank you. 💜
     <td align="center"><a href="https://github.com/bopy-zou"><img src="https://github.com/bopy-zou.png?size=100" width="72" alt="bopy-zou"/><br/><sub>bopy-zou</sub></a></td>
     <td align="center"><a href="https://github.com/Handanhhhy"><img src="https://github.com/Handanhhhy.png?size=100" width="72" alt="Handanhhhy"/><br/><sub>Handanhhhy</sub></a></td>
     <td align="center"><a href="https://github.com/Hanlin-Gabriel"><img src="https://github.com/Hanlin-Gabriel.png?size=100" width="72" alt="Hanlin-Gabriel"/><br/><sub>Hanlin-Gabriel</sub></a></td>
-    <td align="center"><a href="https://github.com/honggui-duat"><img src="https://github.com/honggui-duat.png?size=100" width="72" alt="honggui-duat"/><br/><sub>honggui-duat</sub></a></td>
+    <td align="center"><a href="https://github.com/ryanhuang-duat"><img src="https://github.com/ryanhuang-duat.png?size=100" width="72" alt="ryanhuang-duat"/><br/><sub>ryanhuang-duat</sub></a></td>
     <td align="center"><a href="https://github.com/lywaterman"><img src="https://github.com/lywaterman.png?size=100" width="72" alt="lywaterman"/><br/><sub>lywaterman</sub></a></td>
     <td align="center"><a href="https://github.com/n7s4"><img src="https://github.com/n7s4.png?size=100" width="72" alt="n7s4"/><br/><sub>n7s4</sub></a></td>
   </tr>

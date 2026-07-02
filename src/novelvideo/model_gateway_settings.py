@@ -17,6 +17,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from novelvideo.official_defaults import (
+    DEFAULT_COGNEE_EMBEDDING_DIM,
+    DEFAULT_COGNEE_EMBEDDING_MODEL,
+    DEFAULT_COGNEE_EMBEDDING_PROVIDER,
+    DEFAULT_EMBEDDING_BATCH_SIZE,
+)
 from novelvideo.sqlite_pragmas import configure_sqlite_connection
 
 MODE_OFFICIAL = "official"
@@ -661,6 +667,12 @@ def get_effective_cognee_embedding_config(
 ) -> EffectiveCogneeEmbeddingConfig:
     saved = get_newapi_embedding_model_config()
     if saved:
+        saved_batch_size = str(
+            saved.get("batchSize")
+            or os.environ.get("EMBEDDING_BATCH_SIZE", DEFAULT_EMBEDDING_BATCH_SIZE)
+        ).strip()
+        if saved_batch_size:
+            saved_batch_size = str(_int_setting(saved_batch_size, 0) or "")
         return EffectiveCogneeEmbeddingConfig(
             source="database",
             provider="newapi",
@@ -668,11 +680,13 @@ def get_effective_cognee_embedding_config(
             dimensions=str(saved["dimension"]),
             upstream_provider=str(saved["provider"]),
             upstream_model=str(saved["upstreamModel"]),
-            batch_size=str(saved.get("batchSize") or ""),
+            batch_size=saved_batch_size or DEFAULT_EMBEDDING_BATCH_SIZE,
         )
 
     provider = str(
-        env_provider or os.environ.get("COGNEE_EMBEDDING_PROVIDER", "")
+        env_provider
+        or os.environ.get("COGNEE_EMBEDDING_PROVIDER", "")
+        or DEFAULT_COGNEE_EMBEDDING_PROVIDER
     ).strip()
     if not provider:
         if os.environ.get("NEWAPI_BASE_URL", "").strip():
@@ -680,7 +694,9 @@ def get_effective_cognee_embedding_config(
         else:
             provider = "gemini" if llm_provider == "gemini" else "openai"
 
-    if provider == "gemini":
+    if provider == "newapi":
+        default_model = DEFAULT_COGNEE_EMBEDDING_MODEL
+    elif provider == "gemini":
         default_model = "gemini/gemini-embedding-001"
     else:
         default_model = "openai/text-embedding-3-large"
@@ -691,10 +707,17 @@ def get_effective_cognee_embedding_config(
         str(
             env_dimensions
             if env_dimensions is not None
-            else os.environ.get("COGNEE_EMBEDDING_DIM", "3072")
+            else os.environ.get("COGNEE_EMBEDDING_DIM", DEFAULT_COGNEE_EMBEDDING_DIM)
         ).strip()
-        or "3072"
+        or DEFAULT_COGNEE_EMBEDDING_DIM
     )
+    batch_size = str(
+        os.environ.get("EMBEDDING_BATCH_SIZE", DEFAULT_EMBEDDING_BATCH_SIZE)
+    ).strip()
+    if batch_size:
+        batch_size = str(_int_setting(batch_size, 0) or "")
+    if not batch_size:
+        batch_size = DEFAULT_EMBEDDING_BATCH_SIZE
     return EffectiveCogneeEmbeddingConfig(
         source="environment",
         provider=provider,
@@ -702,6 +725,7 @@ def get_effective_cognee_embedding_config(
         dimensions=dimensions,
         upstream_provider="",
         upstream_model="",
+        batch_size=batch_size,
     )
 
 

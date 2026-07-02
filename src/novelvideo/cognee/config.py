@@ -21,6 +21,11 @@ from novelvideo.llm_instrumentation import (
     reset_model_call_reservation_active,
     set_model_call_reservation_active,
 )
+from novelvideo.official_defaults import (
+    DEFAULT_COGNEE_LLM_MODEL,
+    DEFAULT_COGNEE_LLM_PROVIDER,
+    OFFICIAL_NEWAPI_BASE_URL,
+)
 from novelvideo.ports import get_usage_meter
 from novelvideo.shared.billing_errors import (
     InsufficientCreditsStop,
@@ -48,7 +53,7 @@ _embedding_headers_capture: contextvars.ContextVar[dict[str, str] | None] = (
 
 # 在导入 cognee 之前设置环境变量（Cognee 在导入时会读取）
 # 从 .env 读取配置并设置环境变量
-def _resolve_llm_provider(default: str = "openai") -> str:
+def _resolve_llm_provider(default: str = DEFAULT_COGNEE_LLM_PROVIDER) -> str:
     provider = os.getenv("COGNEE_LLM_PROVIDER", "").strip()
     model = os.getenv("COGNEE_LLM_MODEL", "").strip()
     if provider:
@@ -156,7 +161,7 @@ def _effective_newapi_gateway() -> tuple[str, str]:
     except Exception:
         return (
             os.getenv("NEWAPI_API_KEY", "").strip(),
-            os.getenv("NEWAPI_BASE_URL", "").strip(),
+            os.getenv("NEWAPI_BASE_URL", "").strip() or OFFICIAL_NEWAPI_BASE_URL,
         )
 
 
@@ -610,6 +615,38 @@ def _resolve_embedding_provider(llm_provider: str) -> tuple:
     )
 
 
+def _apply_embedding_runtime_defaults(llm_provider: str) -> None:
+    """Apply non-secret embedding defaults before Cognee imports and caches config."""
+    (
+        embedding_provider,
+        embedding_model,
+        embedding_dimensions,
+        embedding_batch_size,
+    ) = _resolve_embedding_provider(llm_provider)
+    raw_embedding_provider = embedding_provider
+    embedding_model = _normalize_embedding_model(
+        raw_embedding_provider, embedding_model
+    )
+    embedding_provider = _to_cognee_provider(embedding_provider)
+    embedding_endpoint = _get_endpoint_env(
+        raw_embedding_provider,
+        "COGNEE_EMBEDDING_ENDPOINT",
+        "EMBEDDING_ENDPOINT",
+    )
+    embedding_api_version = _get_scoped_env(
+        "COGNEE_EMBEDDING_API_VERSION", "EMBEDDING_API_VERSION"
+    )
+
+    os.environ["EMBEDDING_PROVIDER"] = embedding_provider
+    os.environ["EMBEDDING_MODEL"] = embedding_model
+    os.environ["EMBEDDING_DIMENSIONS"] = embedding_dimensions
+    if embedding_batch_size:
+        os.environ["EMBEDDING_BATCH_SIZE"] = embedding_batch_size
+    _set_or_clear_env("EMBEDDING_ENDPOINT", embedding_endpoint)
+    _set_or_clear_env("EMBEDDING_API_VERSION", embedding_api_version)
+    _clear_cognee_embedding_config_cache()
+
+
 def _apply_llm_env(provider: str, model: str, api_key: str) -> None:
     """应用 LLM 相关环境变量。"""
     llm_endpoint = _get_endpoint_env(provider, "COGNEE_LLM_ENDPOINT", "LLM_ENDPOINT")
@@ -705,8 +742,9 @@ def _apply_embedding_env(llm_provider: str, api_key: str) -> tuple[str, str, str
 llm_provider = _resolve_llm_provider()
 llm_model = _normalize_llm_model(
     llm_provider,
-    os.getenv("COGNEE_LLM_MODEL", "gpt-4o-mini"),
+    os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
 )
+_apply_embedding_runtime_defaults(llm_provider)
 
 api_key = _resolve_llm_api_key(llm_provider, llm_model)
 
@@ -750,9 +788,9 @@ def init_cognee() -> None:
 
     需要的环境变量（在 .env 文件中）:
         COGNEE_LLM_PROVIDER=newapi (或 gemini/openai/custom)
-        COGNEE_LLM_MODEL=gemini/gemini-3.5-flash
+        COGNEE_LLM_MODEL=DC-cognee-LLM
         NEWAPI_API_KEY=your_key (或 GEMINI_API_KEY/OPENAI_API_KEY)
-        NEWAPI_BASE_URL=http://localhost:3000/v1
+        NEWAPI_BASE_URL=https://relayclaw.cdnfg.com/v1
         COGNEE_LLM_ENDPOINT=https://openrouter.ai/api/v1  # custom provider 时可选
         COGNEE_EMBEDDING_ENDPOINT=...                    # custom embedding 时可选
     """
@@ -763,7 +801,7 @@ def init_cognee() -> None:
 
     api_key = _resolve_llm_api_key(
         llm_provider,
-        os.getenv("COGNEE_LLM_MODEL", "gpt-4o-mini"),
+        os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
     )
     if not api_key:
         raise ValueError(
@@ -776,7 +814,7 @@ def init_cognee() -> None:
 
     llm_model = _normalize_llm_model(
         llm_provider,
-        os.getenv("COGNEE_LLM_MODEL", "gpt-4o-mini"),
+        os.getenv("COGNEE_LLM_MODEL", "").strip() or DEFAULT_COGNEE_LLM_MODEL,
     )
 
     _apply_llm_env(llm_provider, llm_model, api_key)
@@ -791,21 +829,37 @@ def init_cognee() -> None:
 
     # 设置 cognee.config（虽然 Cognee 主要从环境变量读取，但设置 config 作为备份）
     cognee_llm_provider = _to_cognee_provider(llm_provider)
-    cognee.config.llm_provider = cognee_llm_provider
+    cognee_provider = "gemini" if llm_provider == "gemini" else cognee_llm_provider
+    cognee.config.llm_provider = cognee_provider
     cognee.config.llm_model = llm_model
     cognee.config.llm_api_key = api_key
+    if hasattr(cognee.config, "set_llm_provider"):
+        cognee.config.set_llm_provider(cognee_provider)
+    if hasattr(cognee.config, "set_llm_model"):
+        cognee.config.set_llm_model(llm_model)
+    if hasattr(cognee.config, "set_llm_api_key"):
+        cognee.config.set_llm_api_key(api_key)
+
     cognee.config.embedding_provider = embedding_provider
     cognee.config.embedding_model = embedding_model
     cognee.config.embedding_dimensions = int(embedding_dimensions)
     cognee.config.embedding_api_key = embedding_api_key or api_key
+    if hasattr(cognee.config, "set_embedding_provider"):
+        cognee.config.set_embedding_provider(embedding_provider)
+    if hasattr(cognee.config, "set_embedding_model"):
+        cognee.config.set_embedding_model(embedding_model)
+    if hasattr(cognee.config, "set_embedding_dimensions"):
+        cognee.config.set_embedding_dimensions(int(embedding_dimensions))
+    if hasattr(cognee.config, "set_embedding_api_key"):
+        cognee.config.set_embedding_api_key(embedding_api_key or api_key)
     _patch_cognee_embedding_timeout()
     _install_insufficient_credits_log_filter()
     _patch_cognee_embedding_gateway()
 
 
 def configure_cognee(
-    llm_provider: str = "openai",
-    llm_model: str = "gpt-4o-mini",
+    llm_provider: str = DEFAULT_COGNEE_LLM_PROVIDER,
+    llm_model: str = DEFAULT_COGNEE_LLM_MODEL,
     embedding_model: str = "text-embedding-3-small",
     api_key: Optional[str] = None,
 ) -> None:

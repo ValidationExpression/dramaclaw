@@ -12,15 +12,21 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 
+from novelvideo.official_defaults import (
+    DEFAULT_FREEZONE_STORY_SCRIPT_MODEL,
+    DEFAULT_FREEZONE_TRANSLATION_MODEL,
+)
+
 FREEZONE_TRANSLATION_PROVIDER = "newapi"
-FREEZONE_TRANSLATION_MODEL = "gemini-3.5-flash"
+FREEZONE_TRANSLATION_MODEL = DEFAULT_FREEZONE_TRANSLATION_MODEL
 FREEZONE_STORY_SCRIPT_MODEL = {
-    "id": "newapi_gemini_flash",
+    "id": DEFAULT_FREEZONE_STORY_SCRIPT_MODEL,
     "provider": "newapi",
-    "model": "gemini-3.5-flash",
-    "label": "DramaClawAPI Gemini Flash",
+    "model": DEFAULT_FREEZONE_STORY_SCRIPT_MODEL,
+    "label": "DramaClawAPI Story Script",
 }
 LEGACY_FREEZONE_STORY_SCRIPT_MODEL_IDS = {
+    "newapi_gemini_flash",
     "openrouter_gemini_flash",
     "OpenRouter Gemini 2.5 Flash",
 }
