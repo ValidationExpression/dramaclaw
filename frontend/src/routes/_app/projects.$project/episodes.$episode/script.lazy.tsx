@@ -32,6 +32,7 @@ import {
   type ScriptFeedback,
 } from "@/lib/script-feedback";
 import { IdentityPickerDialog } from "@/components/identity-picker-dialog";
+import { CreditCostInline } from "@/components/credit-cost-inline";
 import {
   EpisodeAssetPlanning,
   type AssetPlanningCategory,
@@ -101,6 +102,12 @@ function ScriptTabContent() {
   const planScenes = usePlanEpisodeScenes(project);
   const planProps = usePlanEpisodeProps(project);
   const generateScript = useGenerateScript(project, epNum);
+  const generateScriptCost = useGenerationCreditCost("feature", "script_writer");
+  const generateScriptCostDisplay =
+    generateScriptCost.data?.data.display ??
+    (generateScriptCost.error instanceof BillingRuleNotConfiguredError
+      ? t("common.billingRuleNotConfiguredShort")
+      : null);
   const generateRewrite = useGenerateRewrite(project, epNum);
   const scriptTask = useTaskController({
     key: { taskType: TASK_TYPES.SCRIPT_WRITER, project, episode: epNum },
@@ -320,12 +327,12 @@ function ScriptTabContent() {
       }
       const res = await generateScript.mutateAsync({});
       if (res.ok === false) {
-        toast.error(res.error || t("common.error"));
+        toast.error(backendErrorToastMessage(res.error, t));
         return;
       }
       scriptTask.start({ scope: res.scope });
-    } catch {
-      toast.error(t("common.error"));
+    } catch (err) {
+      toast.error(backendErrorToastMessage(err, t));
     }
   };
 
@@ -572,6 +579,9 @@ function ScriptTabContent() {
               t("common.stop")
             ) : (
               t("episode.script.generateScript")
+            )}
+            {!scriptTask.started && (
+              <CreditCostInline display={generateScriptCostDisplay} />
             )}
           </Button>
         </div>
