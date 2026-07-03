@@ -30,6 +30,15 @@ describe("episodes workbench integration", () => {
     expect(routeSource).toContain("episode.list.planProps");
   });
 
+  it("shows feature credit cost on list-card identity planning actions", () => {
+    expect(routeSource).toContain('useGenerationCreditCost("feature", "identity_planner")');
+    expect(routeSource).toContain(
+      "planIdentitiesCost.error instanceof BillingRuleNotConfiguredError",
+    );
+    expect(routeSource).toContain("identityCostDisplay={planIdentitiesCostDisplay}");
+    expect(routeSource).toContain("<CreditCostInline display={costDisplay} />");
+  });
+
   it("scopes list-card planning spinners to the clicked episode", () => {
     expect(routeSource).toContain("planIdentities.isPending || identityTask.started");
     expect(routeSource).toContain('taskType: "identity_planner"');

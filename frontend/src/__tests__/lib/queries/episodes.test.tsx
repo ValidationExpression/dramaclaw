@@ -76,6 +76,33 @@ describe("episode identity planning", () => {
       task_type: "identity_planner",
     });
   });
+
+  it("surfaces missing feature billing rules as a typed error", async () => {
+    server.use(
+      http.post(
+        "http://localhost:3000/api/v1/projects/demo/episodes/1/identities/plan",
+        () =>
+          HttpResponse.json(
+            {
+              ok: false,
+              error: "计费规则未配置，请联系管理员设置积分规则",
+              data: {
+                error_code: "BILLING_RULE_NOT_CONFIGURED",
+                billing_kind: "feature",
+                billing_key: "identity_planner",
+              },
+            },
+            { status: 409 },
+          ),
+      ),
+    );
+
+    const { result } = renderHook(() => usePlanIdentities("demo"), { wrapper });
+
+    await expect(result.current.mutateAsync(1)).rejects.toBeInstanceOf(
+      BillingRuleNotConfiguredError,
+    );
+  });
 });
 
 describe("episode planning", () => {

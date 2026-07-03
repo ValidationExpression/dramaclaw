@@ -21,7 +21,11 @@ import { useProject } from "@/lib/queries/projects";
 import { useGenerateRewrite, useGenerateScript } from "@/lib/queries/scripts";
 import { useTaskController } from "@/hooks/use-task-controller";
 import { queryKeys } from "@/lib/query-keys";
-import { backendErrorToastMessage } from "@/lib/api-errors";
+import {
+  backendErrorToastMessage,
+  BillingRuleNotConfiguredError,
+} from "@/lib/api-errors";
+import { useGenerationCreditCost } from "@/lib/queries/generation-credit-cost";
 import { TASK_TYPES } from "@/lib/task-types";
 import {
   getScriptReviewFeedback,
@@ -88,6 +92,12 @@ function ScriptTabContent() {
   const { data: charactersRes } = useCharacters(project);
   const updateEpisode = useUpdateEpisode(project);
   const planIdentities = usePlanIdentities(project);
+  const planIdentitiesCost = useGenerationCreditCost("feature", "identity_planner");
+  const planIdentitiesCostDisplay =
+    planIdentitiesCost.data?.data.display ??
+    (planIdentitiesCost.error instanceof BillingRuleNotConfiguredError
+      ? t("common.billingRuleNotConfiguredShort")
+      : null);
   const planScenes = usePlanEpisodeScenes(project);
   const planProps = usePlanEpisodeProps(project);
   const generateScript = useGenerateScript(project, epNum);
@@ -323,7 +333,7 @@ function ScriptTabContent() {
     try {
       const res = await planIdentities.mutateAsync(epNum);
       if (res.ok === false) {
-        toast.error(res.error || t("common.error"));
+        toast.error(backendErrorToastMessage(res.error, t));
         return;
       }
       identityTask.start({ scope: res.scope });
@@ -722,6 +732,7 @@ function ScriptTabContent() {
         onChange={handleIdentityChange}
         onPlan={handlePlanIdentities}
         planPending={identityPlanning}
+        planCostDisplay={planIdentitiesCostDisplay}
       />
     </div>
   );
