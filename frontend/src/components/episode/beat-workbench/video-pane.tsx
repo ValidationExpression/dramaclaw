@@ -283,6 +283,7 @@ export function VideoPane({
   const { data: videoBackendsRes } = useVideoBackends(project);
   const videoBackends = videoBackendsRes?.data ?? [];
   const beatVideoPromptCost = useGenerationCreditCost("feature", "beat_video_prompt");
+  const seedance2PromptCost = useGenerationCreditCost("feature", "seedance2_prompt");
   const now = useNow();
   const seedance2UploadInputRef = useRef<HTMLInputElement>(null);
   const [regenConfirm, setRegenConfirm] = useState(false);
@@ -514,6 +515,11 @@ export function VideoPane({
   const beatVideoPromptCostDisplay =
     beatVideoPromptCost.data?.data.display ??
     (beatVideoPromptCost.error instanceof BillingRuleNotConfiguredError
+      ? t("common.billingRuleNotConfiguredShort")
+      : null);
+  const seedance2PromptCostDisplay =
+    seedance2PromptCost.data?.data.display ??
+    (seedance2PromptCost.error instanceof BillingRuleNotConfiguredError
       ? t("common.billingRuleNotConfiguredShort")
       : null);
   const seedance2DraftRef = useRef(seedance2Config);
@@ -834,8 +840,8 @@ export function VideoPane({
           ? "主体提示词已优化"
           : t("episode.workbench.video.seedance2PromptGenerated"),
       );
-    } catch {
-      toast.error(t("episode.workbench.video.seedance2PromptGenerateFailed"));
+    } catch (error) {
+      toast.error(backendErrorToastMessage(error, t));
     }
   };
   const updateSeedance2Draft = <K extends keyof Seedance2ConfigDraft>(
@@ -2331,6 +2337,7 @@ export function VideoPane({
                   {showHappyHorseConfig
                     ? "生成主体提示词"
                     : t("episode.workbench.video.seedance2GeneratePrompt")}
+                  <CreditCostInline display={seedance2PromptCostDisplay} />
                 </Button>
                 <Button
                   size="xs"
