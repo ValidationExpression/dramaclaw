@@ -564,8 +564,11 @@ vi.mock("@/lib/queries/scripts", () => ({
 }));
 
 vi.mock("@/lib/queries/generation-credit-cost", () => ({
-  useGenerationCreditCost: () => ({
-    data: { ok: true, data: { cost: 0, display: null } },
+  useGenerationCreditCost: (kind: string, value?: string) => ({
+    data:
+      kind === "feature" && value === "beat_video_prompt"
+        ? { ok: true, data: { cost: 5, display: "5" } }
+        : { ok: true, data: { cost: 0, display: null } },
     isLoading: false,
     isError: false,
   }),
@@ -766,7 +769,11 @@ describe("VideoPane Seedance2 inspector", () => {
       { defaultBackend: "newapi_seedance-1.0-pro-fast" },
     );
 
-    await user.click(screen.getByRole("button", { name: "生成本 Beat 提示词" }));
+    const promptButton = screen.getByRole("button", {
+      name: "生成本 Beat 提示词",
+    });
+    expect(promptButton).toHaveTextContent("5");
+    await user.click(promptButton);
 
     expect(generateBeatVideoPromptMock).toHaveBeenCalledWith({ beatNum: 1 });
     expect(screen.getByLabelText("视频提示词")).toHaveValue(
