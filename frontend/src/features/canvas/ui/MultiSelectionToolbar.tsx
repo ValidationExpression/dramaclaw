@@ -25,7 +25,7 @@ import {
   DEFAULT_NODE_WIDTH,
   type CanvasNode,
 } from '@/features/canvas/domain/canvasNodes';
-import { isPresetManagedNode } from '@/features/canvas/domain/mainlineNodeFlags';
+import { collectBatchDeletableIds } from '@/features/canvas/domain/groupSelectionDelete';
 
 // 合并分镜组只接受图片类节点。
 const STORYBOARD_IMAGE_NODE_TYPES = new Set<string>([
@@ -110,13 +110,13 @@ export const MultiSelectionToolbar = memo(() => {
 
   // Preset/mainline-managed nodes are not user-deletable — the store filters
   // them out internally too, but we compute the deletable subset here so the
-  // button can disable itself when the whole selection is locked.
+  // button can disable itself when the whole selection is locked. The marquee
+  // drops a fully-enclosed group from `selected` (so dragging children doesn't
+  // double-move them), so we also re-include any group whose every child is
+  // selected — otherwise a batch delete empties the group but leaves its frame.
   const deletableIds = useMemo(
-    () =>
-      selectedNodes
-        .filter((node) => !isPresetManagedNode(node))
-        .map((node) => node.id),
-    [selectedNodes]
+    () => collectBatchDeletableIds(nodes, selectedIds),
+    [nodes, selectedIds]
   );
 
   // Resolve a node's absolute (canvas-space) position by walking its parent
