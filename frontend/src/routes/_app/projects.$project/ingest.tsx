@@ -34,8 +34,7 @@ import {
 import { FormatCheckDetailsDialog } from "@/components/ingest/FormatCheckDetailsDialog";
 import { NovelFormatDialog } from "@/components/ingest/NovelFormatDialog";
 import { useStyles } from "@/lib/queries/styles";
-import { useCharacters } from "@/lib/queries/characters";
-import { useCancelTask } from "@/lib/queries/tasks";
+import { useCancelTask, useTasks } from "@/lib/queries/tasks";
 import { useGenerationCreditCost } from "@/lib/queries/generation-credit-cost";
 import { useTaskStream } from "@/hooks/use-task-stream";
 import { queryKeys } from "@/lib/query-keys";
@@ -210,6 +209,15 @@ type IngestFileStatus =
   | "stopped"
   | "failed";
 
+// 一个 ingest_fast 任务处于这些状态 = 导入尚在进行，切走再回来要恢复进度视图。
+const ACTIVE_INGEST_STATUSES = new Set([
+  "submitting",
+  "queued",
+  "pending",
+  "starting",
+  "running",
+]);
+
 const PASTE_TEXT_MAX_LENGTH = 1000;
 const HIDDEN_IMPORTED_PREVIEW_KEY_PREFIX =
   "supertale-ingest-hidden-imported-preview:";
@@ -345,6 +353,45 @@ function UploadZone({
   );
 }
 
+// 全屏上传遮罩：网络慢时上传还在飞、用户一切菜单就卸载本页，upload 的 onSuccess
+// 便写不进 chapters 缓存，回来「刚上传的小说」就消失了。用 fixed inset-0 z-[1000]
+// 盖住整屏（含顶部菜单），上传期间挡住导航，逼用户等上传落地再离开。
+function UploadingOverlay() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="alertdialog"
+      aria-busy="true"
+      aria-live="assertive"
+      aria-label={t("ingest.uploadingTitle")}
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/80 px-6 text-foreground backdrop-blur-md"
+    >
+      <div className="flex w-full max-w-sm flex-col items-center rounded-2xl border border-border/60 bg-card/95 px-8 py-10 text-center shadow-2xl shadow-black/50">
+        <div className="relative mb-6 flex size-14 items-center justify-center">
+          <span
+            className="absolute inset-0 animate-ping rounded-full bg-primary/10"
+            aria-hidden="true"
+          />
+          <span
+            className="absolute inset-0 rounded-full bg-primary/10"
+            aria-hidden="true"
+          />
+          <Loader2
+            className="relative size-7 animate-spin text-primary"
+            aria-hidden="true"
+          />
+        </div>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t("ingest.uploadingTitle")}
+        </h2>
+        <p className="mt-2.5 max-w-[17rem] text-[13px] leading-6 text-muted-foreground">
+          {t("ingest.uploadingHint")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // 格式风险常驻警告：文件在则警告在，替代一闪而过的 toast.warning。
 // boxed = 富卡片里的琥珀色警告条；plain = 上传表单提示行里的一行轻量文字。
 function FormatCheckWarning({
@@ -365,9 +412,7 @@ function FormatCheckWarning({
       onClick={onViewDetails}
       className={cn(
         "ml-1.5 whitespace-nowrap font-medium underline underline-offset-2 transition-colors",
-        variant === "boxed"
-          ? "text-amber-300 hover:text-amber-200"
-          : "text-foreground/80 hover:text-foreground",
+        "text-foreground/80 hover:text-foreground",
       )}
     >
       {t("aiAssistant.formatCheck.viewDetails")}
@@ -377,7 +422,7 @@ function FormatCheckWarning({
   if (variant === "plain") {
     return (
       <div className={cn("flex items-start gap-1.5", className)}>
-        <AlertTriangle className="mt-px size-3.5 shrink-0 text-amber-400" />
+        <AlertTriangle className="mt-px size-3.5 shrink-0 text-foreground/45" />
         <div className="min-w-0">
           <span>{formatCheck.summary || t("aiAssistant.formatCheck.title")}</span>
           {detailsButton}
@@ -389,12 +434,12 @@ function FormatCheckWarning({
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2",
+        "flex items-start gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-2",
         className,
       )}
     >
-      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-400" />
-      <div className="min-w-0 text-xs leading-5 text-amber-200/90">
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-foreground/45" />
+      <div className="min-w-0 text-xs leading-5 text-foreground/70">
         <span>{formatCheck.summary || t("aiAssistant.formatCheck.title")}</span>
         {detailsButton}
       </div>
@@ -852,9 +897,6 @@ export function IngestPageContent({ project }: { project: string }) {
   const chaptersData = chaptersRes?.data;
   const hasImportedContent = (chaptersData?.chapters?.length ?? 0) > 0;
 
-  // Re-import warning if characters already exist
-  const { data: charactersRes } = useCharacters(project);
-  const hasCharacters = (charactersRes?.data?.length ?? 0) > 0;
   const pastedBillableChars = useMemo(
     () => countBillableNovelChars(pastedText.trim()),
     [pastedText],
@@ -930,6 +972,30 @@ export function IngestPageContent({ project }: { project: string }) {
       setIngestError(error);
     },
   });
+
+  // Mount reconcile：导入实际在服务端(celery)跑。用户导入中切走再回来，本地
+  // 的 ingestStarted/ingestSubmitted 全部重置、SSE 也不重连，而此时章节尚未
+  // 持久化(chapters 为空)，页面便退回空上传页——「导入中的虾料不见了」。
+  // 挂载时与服务端任务列表对账一次：若 ingest_fast 仍活跃，就重开进度视图，
+  // 让 useTaskStream 重连(后端会在连接时补发运行进度)。
+  const { data: ingestTasksRes } = useTasks({ project, episode: 0 });
+  const ingestReconciledRef = useRef(false);
+  useEffect(() => {
+    if (ingestReconciledRef.current) return;
+    if (ingestTasksRes === undefined) return;
+    ingestReconciledRef.current = true;
+    const running = (ingestTasksRes.data ?? []).some(
+      (task) =>
+        task.task_type === "ingest_fast" &&
+        ACTIVE_INGEST_STATUSES.has(task.status),
+    );
+    if (running) {
+      setIngestSubmitted(true);
+      setIngestStarted(true);
+      setIngestFileStatus("importing");
+      setHideImportedPreview(false);
+    }
+  }, [ingestTasksRes, project]);
 
   const handleCancelIngest = useCallback(async () => {
     setIngestStarted(false);
@@ -1179,7 +1245,7 @@ export function IngestPageContent({ project }: { project: string }) {
   const shouldShowPreview = ingestSubmitted || shouldRestoreImportedPreview;
   const previewFile =
     uploadedFile ??
-    (shouldRestoreImportedPreview
+    (shouldRestoreImportedPreview || ingestSubmitted
       ? { filename: t("ingest.restoredFilename"), size: null }
       : null);
   const previewStatus: IngestFileStatus =
@@ -1225,6 +1291,7 @@ export function IngestPageContent({ project }: { project: string }) {
 
   return (
     <div className="-m-6 flex h-[calc(100%+3rem)] flex-col overflow-hidden">
+      {uploadMutation.isPending && <UploadingOverlay />}
       <div className="flex shrink-0 flex-col gap-3 border-b border-border/30 bg-background px-9 py-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
@@ -1580,14 +1647,6 @@ export function IngestPageContent({ project }: { project: string }) {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-
-              {/* Re-import warning */}
-              {previewFile && hasCharacters && (
-                <div className="flex items-center gap-2 rounded-md bg-amber-300/[0.04] px-3 py-2.5 text-xs text-amber-200/75">
-                  <AlertTriangle className="size-4 shrink-0 text-amber-200/70" />
-                  <span>{t("ingest.reimportWarning")}</span>
-                </div>
-              )}
 
               {/* Preview — loading placeholder */}
               {!chaptersData && chaptersFetching && <ChapterPreviewSkeleton />}

@@ -1303,6 +1303,8 @@
     "subtitle": "Upload a script and start your creative journey.",
     "dropzoneHint": "Click or drop your novel file here",
     "supportedFormats": "Supports .txt / .md / .docx · up to 10MB",
+    "uploadingTitle": "Uploading novel…",
+    "uploadingHint": "Please stay on this page until the upload finishes. It may take a moment on a slow connection.",
     "inputMode": {
       "upload": "Upload Novel",
       "paste": "Paste Text"
@@ -1353,7 +1355,6 @@
     "tableTitle": "Title",
     "tableCharCount": "Words",
     "moreChapters": "… and {{count}} more chapter(s)",
-    "reimportWarning": "Re-importing will clear the existing graph and rebuild.",
     "reuploadConfirm": {
       "title": "Confirm re-import",
       "description": "Re-importing will rebuild the graph and may affect downstream pipeline results such as characters, episodes, scripts, and videos. Are you sure you want to re-import the novel/script?",
