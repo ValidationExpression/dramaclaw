@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ChevronDown,
+  Cpu,
   Eye,
   EyeOff,
+  HardDrive,
   Loader2,
   Plus,
   RotateCw,
@@ -36,6 +38,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   FEATURE_MODEL_GROUPS,
+  FEATURE_MODEL_PRODUCT_GROUPS,
   type FeatureModelDef,
   type FeatureModelGroup,
 } from "@/lib/feature-models";
@@ -80,24 +83,100 @@ const SHOW_CODEX_BRIDGE = false;
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { t } = useTranslation();
+  const [page, setPage] = useState<"models" | "storage">("models");
+  const statusQuery = useModelGatewayConfig(open);
+  const settingsStatus = statusQuery.data?.data;
+  const modelConfigured = Boolean(settingsStatus?.effective.configured);
+  const mediaStorageConfigured = Boolean(settingsStatus?.mediaRelay?.configured);
+
+  const pageStatus = (configured: boolean, label: string) => {
+    if (statusQuery.isLoading) {
+      return (
+        <Loader2
+          className="absolute top-1 right-1 size-3 animate-spin text-muted-foreground sm:static sm:ml-auto sm:size-3.5"
+          aria-hidden
+        />
+      );
+    }
+    if (configured) {
+      return (
+        <span
+          className="absolute top-1 right-1 size-2 shrink-0 rounded-full bg-emerald-400 sm:static sm:ml-auto"
+          aria-label={t("settings.statusConfigured", { page: label })}
+          title={t("settings.statusConfigured", { page: label })}
+        />
+      );
+    }
+    return (
+      <AlertTriangle
+        className="absolute top-1 right-1 size-3.5 shrink-0 text-amber-400 sm:static sm:ml-auto sm:size-4"
+        aria-label={t("settings.statusNotConfigured", { page: label })}
+      />
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-w-[calc(100%-2rem)] gap-0 rounded-lg border border-border bg-black p-0 ring-0 sm:max-w-[860px]"
+        className="flex h-[min(82vh,760px)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-lg border border-border bg-black p-0 ring-0 sm:max-w-[1120px]"
       >
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>{t("settings.title")}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[min(72vh,640px)] [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
-          <div className="divide-y divide-border">
-            <ModelConfigSection open={open} />
-            <MediaStorageSection />
-            {SHOW_CODEX_BRIDGE && <CodexBridgeSection />}
-          </div>
-        </ScrollArea>
+        <div className="flex min-h-0 flex-1">
+          <nav
+            aria-label={t("settings.navigationLabel")}
+            className="flex w-14 shrink-0 flex-col gap-1 border-r border-border px-2 py-4 sm:w-44 sm:px-3"
+          >
+            <button
+              type="button"
+              aria-current={page === "models" ? "page" : undefined}
+              onClick={() => setPage("models")}
+              className={cn(
+                "relative flex h-10 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors sm:justify-start sm:px-3",
+                page === "models"
+                  ? "bg-white/[0.09] text-foreground"
+                  : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+              )}
+            >
+              <Cpu className="size-4" aria-hidden />
+              <span className="hidden sm:inline">{t("settings.pages.models")}</span>
+              {pageStatus(modelConfigured, t("settings.pages.models"))}
+            </button>
+            <button
+              type="button"
+              aria-current={page === "storage" ? "page" : undefined}
+              onClick={() => setPage("storage")}
+              className={cn(
+                "relative flex h-10 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition-colors sm:justify-start sm:px-3",
+                page === "storage"
+                  ? "bg-white/[0.09] text-foreground"
+                  : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+              )}
+            >
+              <HardDrive className="size-4" aria-hidden />
+              <span className="hidden sm:inline">{t("settings.pages.storage")}</span>
+              {pageStatus(mediaStorageConfigured, t("settings.pages.storage"))}
+            </button>
+          </nav>
+
+          {page === "models" ? (
+            <div className="min-w-0 flex-1">
+            <ScrollArea className="h-full [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
+              <ModelConfigSection open={open && page === "models"} />
+              {SHOW_CODEX_BRIDGE && <CodexBridgeSection />}
+            </ScrollArea>
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1">
+            <ScrollArea className="h-full [&_[data-slot=scroll-area-scrollbar]]:!w-1 [&_[data-slot=scroll-area-scrollbar]]:!border-l-0 [&_[data-slot=scroll-area-scrollbar]]:!p-0">
+              <MediaStorageSection />
+            </ScrollArea>
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end border-t border-border px-5 py-3.5">
           <DialogClose render={<Button variant="outline" size="sm" />}>
@@ -185,13 +264,13 @@ function ModelConfigSection({ open }: { open: boolean }) {
     }
   }, [serverMode]);
 
-  // 自定义 NewAPI 地址上提到此处：自定义面板的输入框与下方「保存映射」
-  // 写入渠道时共用同一个 newApiBaseUrl。
+  // CE 运行环境提供本地 NewAPI 管理地址；初始化与下方模型映射共用该地址。
   const [customBaseUrl, setCustomBaseUrl] = useState(DEFAULT_CUSTOM_NEWAPI_URL);
-  const [dbSqlDsn, setDbSqlDsn] = useState("");
-  const [dbSqlitePath, setDbSqlitePath] = useState("");
-  const [dbAdminUsername, setDbAdminUsername] = useState("root");
-  const seededCustomBaseUrl = config?.custom?.adminBaseUrl || config?.custom?.baseUrl || "";
+  const seededCustomBaseUrl =
+    config?.custom?.adminBaseUrl ||
+    config?.provisioner?.adminBaseUrl ||
+    config?.custom?.baseUrl ||
+    "";
   useEffect(() => {
     if (seededCustomBaseUrl) {
       setCustomBaseUrl((current) =>
@@ -200,42 +279,9 @@ function ModelConfigSection({ open }: { open: boolean }) {
     }
   }, [seededCustomBaseUrl]);
 
-  const databaseStatus = config?.provisioner?.database;
-  const databaseStatusKey = JSON.stringify(databaseStatus ?? {});
-  useEffect(() => {
-    if (!databaseStatus) return;
-    const preview = databaseStatus.sqlDsnPreview || "";
-    if (preview) {
-      setDbSqlDsn((current) => {
-        if (preview.includes("***")) return "";
-        return current === preview ? current : preview;
-      });
-    }
-    if (databaseStatus.sqlitePath) {
-      setDbSqlitePath((current) =>
-        current === databaseStatus.sqlitePath ? current : databaseStatus.sqlitePath,
-      );
-    }
-    if (databaseStatus.adminUsername) {
-      setDbAdminUsername((current) =>
-        current === databaseStatus.adminUsername ? current : databaseStatus.adminUsername,
-      );
-    }
-  }, [databaseStatusKey]);
-
-  const customDatabase = useMemo<NewApiDatabaseConfigInput | undefined>(() => {
-    const sqlDsn = dbSqlDsn.trim();
-    const sqlitePath = dbSqlitePath.trim();
-    const adminUsername = dbAdminUsername.trim();
-    if (!sqlDsn && !sqlitePath && (!adminUsername || adminUsername === "root")) {
-      return undefined;
-    }
-    return {
-      ...(sqlDsn ? { sqlDsn } : {}),
-      ...(sqlitePath ? { sqlitePath } : {}),
-      ...(adminUsername ? { adminUsername } : {}),
-    };
-  }, [dbSqlDsn, dbSqlitePath, dbAdminUsername]);
+  // CE owns one local SQLite-backed NewAPI instance. Database paths and the
+  // root username are deployment details, not user-editable model settings.
+  const customDatabase: NewApiDatabaseConfigInput | undefined = undefined;
 
   return (
     <section className="px-5 py-5">
@@ -298,14 +344,6 @@ function ModelConfigSection({ open }: { open: boolean }) {
             config={config}
             loading={loading}
             baseUrl={customBaseUrl}
-            onBaseUrlChange={setCustomBaseUrl}
-            dbSqlDsn={dbSqlDsn}
-            onDbSqlDsnChange={setDbSqlDsn}
-            dbSqlitePath={dbSqlitePath}
-            onDbSqlitePathChange={setDbSqlitePath}
-            dbAdminUsername={dbAdminUsername}
-            onDbAdminUsernameChange={setDbAdminUsername}
-            database={customDatabase}
           />
         )}
       </div>
@@ -338,6 +376,7 @@ function OfficialGatewayPanel({
 
   const [apiKey, setApiKey] = useState("");
   const [revealKey, setRevealKey] = useState(false);
+  const savedApiKeyPreview = official?.configured ? official.apiKeyPreview : "";
 
   const handleSave = async () => {
     const trimmedApiKey = apiKey.trim();
@@ -363,6 +402,7 @@ function OfficialGatewayPanel({
         return;
       }
       setApiKey("");
+      setRevealKey(false);
       toast.success(t("settings.modelConfig.official.saved"));
     } catch (error) {
       toast.error(await getRequestErrorMessage(error, t("settings.modelConfig.requestFailed")));
@@ -390,24 +430,46 @@ function OfficialGatewayPanel({
           </Label>
           <div className="relative">
             <Input
+              name="relayclaw-official-api-key"
+              autoComplete="new-password"
+              data-1p-ignore="true"
+              data-lpignore="true"
               type={revealKey ? "text" : "password"}
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={official?.configured ? official.apiKeyPreview : "sk-..."}
-              className="h-9 rounded-md border-input/80 pr-9 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30"
-            />
-            <button
-              type="button"
-              onClick={() => setRevealKey((r) => !r)}
-              aria-label={
-                revealKey
-                  ? t("settings.mediaStorage.hideSecret")
-                  : t("settings.mediaStorage.showSecret")
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                if (!e.target.value) setRevealKey(false);
+              }}
+              placeholder={
+                savedApiKeyPreview
+                  ? t("settings.secretSavedPlaceholder", { preview: savedApiKeyPreview })
+                  : "sk-..."
               }
-              className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {revealKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+              autoCapitalize="none"
+              spellCheck={false}
+              className={cn(
+                "h-9 rounded-md border-input/80 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30",
+                apiKey ? "pr-9" : savedApiKeyPreview ? "pr-16" : "",
+              )}
+            />
+            {apiKey ? (
+              <button
+                type="button"
+                onClick={() => setRevealKey((r) => !r)}
+                aria-label={
+                  revealKey
+                    ? t("settings.mediaStorage.hideSecret")
+                    : t("settings.mediaStorage.showSecret")
+                }
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {revealKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            ) : savedApiKeyPreview ? (
+              <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                {t("settings.secretSavedBadge")}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -433,26 +495,10 @@ function CustomGatewayPanel({
   config,
   loading,
   baseUrl,
-  onBaseUrlChange,
-  dbSqlDsn,
-  onDbSqlDsnChange,
-  dbSqlitePath,
-  onDbSqlitePathChange,
-  dbAdminUsername,
-  onDbAdminUsernameChange,
-  database,
 }: {
   config: ModelGatewayConfig | undefined;
   loading: boolean;
   baseUrl: string;
-  onBaseUrlChange: (value: string) => void;
-  dbSqlDsn: string;
-  onDbSqlDsnChange: (value: string) => void;
-  dbSqlitePath: string;
-  onDbSqlitePathChange: (value: string) => void;
-  dbAdminUsername: string;
-  onDbAdminUsernameChange: (value: string) => void;
-  database: NewApiDatabaseConfigInput | undefined;
 }) {
   const { t } = useTranslation();
   const initCustom = useInitCustomNewApi();
@@ -481,11 +527,6 @@ function CustomGatewayPanel({
     const trimmedSetupPassword = setupPassword.trim();
     const trimmedSetupConfirmPassword = setupConfirmPassword.trim();
     const hasSetupPassword = Boolean(trimmedSetupPassword || trimmedSetupConfirmPassword);
-    const setupUsername = dbAdminUsername.trim();
-    if (hasSetupPassword && !setupUsername) {
-      showInitError(t("settings.modelConfig.custom.setupPasswordMissingUsername"));
-      return;
-    }
     if (hasSetupPassword && (!trimmedSetupPassword || !trimmedSetupConfirmPassword)) {
       showInitError(t("settings.modelConfig.custom.setupPasswordIncomplete"));
       return;
@@ -503,10 +544,9 @@ function CustomGatewayPanel({
       const response = await initCustom.mutateAsync(
         {
           ...(baseUrl.trim() ? { newApiBaseUrl: baseUrl.trim() } : {}),
-          ...(database ? { database } : {}),
           ...(hasSetupPassword
             ? {
-                setupUsername,
+                setupUsername: "root",
                 setupPassword: trimmedSetupPassword,
                 setupConfirmPassword: trimmedSetupConfirmPassword,
               }
@@ -534,9 +574,8 @@ function CustomGatewayPanel({
   };
 
   const databaseStatus = config?.provisioner?.database;
-  const databaseConfigured = Boolean(databaseStatus?.configured);
-  const sqlDsnPreview = databaseStatus?.sqlDsnPreview || "";
-  const sqlDsnPlaceholder = sqlDsnPreview || "local";
+  const databaseReady = Boolean(databaseStatus?.available);
+  const customConfigured = Boolean(config?.custom?.configured);
 
   return (
     <div className="space-y-3">
@@ -544,104 +583,85 @@ function CustomGatewayPanel({
         {t("settings.modelConfig.custom.description")}
       </p>
 
-      <div className="space-y-2.5">
-        <FieldRow
-          label={t("settings.modelConfig.fields.baseUrl")}
-          value={baseUrl}
-          onChange={onBaseUrlChange}
-          placeholder={DEFAULT_CUSTOM_NEWAPI_URL}
-        />
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {t("settings.modelConfig.baseUrlHint")}
-        </p>
-      </div>
-
       <div className="rounded-md border border-border/70 p-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            {t("settings.modelConfig.custom.databaseTitle")}
+            {t("settings.modelConfig.custom.localStatusTitle")}
           </p>
-          <span className={cn("text-[11px]", databaseConfigured ? "text-emerald-400" : "text-muted-foreground")}>
-            {databaseConfigured
-              ? t("settings.modelConfig.custom.databaseConfigured")
-              : t("settings.modelConfig.custom.databaseNotConfigured")}
+          <span className={cn("text-[11px]", customConfigured ? "text-emerald-400" : "text-amber-300")}>
+            {customConfigured
+              ? t("settings.modelConfig.custom.localReady")
+              : t("settings.modelConfig.custom.localNeedsInit")}
           </span>
         </div>
         <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-          {t("settings.modelConfig.custom.databaseDescription")}
+          {databaseReady
+            ? t("settings.modelConfig.custom.sqliteReady")
+            : t("settings.modelConfig.custom.sqliteWaiting")}
         </p>
-        <div className="mt-3 space-y-2.5">
-          <FieldRow
-            label={t("settings.modelConfig.fields.sqlDsn")}
-            value={dbSqlDsn}
-            onChange={onDbSqlDsnChange}
-            placeholder={sqlDsnPlaceholder}
-          />
-          <FieldRow
-            label={t("settings.modelConfig.fields.sqlitePath")}
-            value={dbSqlitePath}
-            onChange={onDbSqlitePathChange}
-            placeholder="/path/to/new-api/one-api.db"
-          />
-          <FieldRow
-            label={t("settings.modelConfig.fields.adminUsername")}
-            value={dbAdminUsername}
-            onChange={onDbAdminUsernameChange}
-            placeholder="root"
-          />
-        </div>
       </div>
 
-      <div className="rounded-md border border-border/70 p-3">
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          {t("settings.modelConfig.custom.setupAdminTitle")}
-        </p>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-          {t("settings.modelConfig.custom.setupAdminDescription")}
-        </p>
-        <div className="mt-3 space-y-2.5">
-          <FieldRow
-            secret
-            label={t("settings.modelConfig.custom.setupPassword")}
-            value={setupPassword}
-            onChange={setSetupPassword}
-            placeholder={t("settings.modelConfig.custom.setupPasswordPlaceholder")}
-          />
-          <FieldRow
-            secret
-            label={t("settings.modelConfig.custom.setupConfirmPassword")}
-            value={setupConfirmPassword}
-            onChange={setSetupConfirmPassword}
-            placeholder={t("settings.modelConfig.custom.setupConfirmPasswordPlaceholder")}
-          />
+      {!customConfigured ? (
+        <div className="rounded-md border border-border/70 p-3">
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            {t("settings.modelConfig.custom.setupAdminTitle")}
+          </p>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            {t("settings.modelConfig.custom.setupAdminDescription")}
+          </p>
+          <div className="mt-3 space-y-2.5">
+            <FieldRow
+              secret
+              name="newapi-setup-password"
+              autoComplete="new-password"
+              label={t("settings.modelConfig.custom.setupPassword")}
+              value={setupPassword}
+              onChange={setSetupPassword}
+              placeholder={t("settings.modelConfig.custom.setupPasswordPlaceholder")}
+            />
+            <FieldRow
+              secret
+              name="newapi-setup-password-confirmation"
+              autoComplete="new-password"
+              label={t("settings.modelConfig.custom.setupConfirmPassword")}
+              value={setupConfirmPassword}
+              onChange={setSetupConfirmPassword}
+              placeholder={t("settings.modelConfig.custom.setupConfirmPasswordPlaceholder")}
+            />
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            {t("settings.modelConfig.custom.setupPasswordOnlyOnce")}
+          </p>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {t("settings.modelConfig.custom.setupPasswordOnlyOnce")}
+      ) : null}
+
+      {initError ? (
+        <p
+          role="alert"
+          aria-live="polite"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] leading-relaxed text-destructive"
+        >
+          {initError}
         </p>
-        {initError ? (
-          <p
-            role="alert"
-            aria-live="polite"
-            className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] leading-relaxed text-destructive"
-          >
-            {initError}
-          </p>
-        ) : null}
-        {!initError && initNotice ? (
-          <p
-            role="status"
-            aria-live="polite"
-            className="mt-2 rounded-md border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200"
-          >
-            {initNotice}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
+      {!initError && initNotice ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-md border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200"
+        >
+          {initNotice}
+        </p>
+      ) : null}
 
       <div className="flex justify-end">
         <Button type="button" size="sm" onClick={handleInit} disabled={loading || initCustom.isPending}>
           {initCustom.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
-          {t("settings.modelConfig.custom.init")}
+          {t(
+            customConfigured
+              ? "settings.modelConfig.custom.repair"
+              : "settings.modelConfig.custom.init",
+          )}
         </Button>
       </div>
     </div>
@@ -652,8 +672,11 @@ function CustomGatewayPanel({
 const FEATURE_ROW_GRID =
   "grid grid-cols-[minmax(0,1fr)_150px_minmax(0,1fr)] items-center gap-3";
 
-function splitFeatureModelGroups(predicate: (feature: FeatureModelDef) => boolean): FeatureModelGroup[] {
-  return FEATURE_MODEL_GROUPS.map((group) => ({
+function splitFeatureModelGroups(
+  groups: readonly FeatureModelGroup[],
+  predicate: (feature: FeatureModelDef) => boolean,
+): FeatureModelGroup[] {
+  return groups.map((group) => ({
     ...group,
     features: group.features.filter(predicate),
   })).filter((group) => group.features.length > 0);
@@ -671,7 +694,7 @@ const MEDIA_MODEL_ROWS: readonly {
   { model: "seedance-2.0", kind: "video" },
   { model: "seedance-2.0-fast", kind: "video" },
   { model: "happyhorse-1.0", kind: "video" },
-  { model: "LingShan-TTS-2", kind: "audio" },
+  { model: "index-tts-2", kind: "audio" },
   { model: "LingShan-MU-11", kind: "audio" },
   { model: "seedance-2.0-value", kind: "video", officialOnly: true },
   { model: "seedance-2.0-fast-value", kind: "video", officialOnly: true },
@@ -680,7 +703,6 @@ const MEDIA_MODEL_ROWS: readonly {
 const MEDIA_ROW_GRID =
   "grid grid-cols-[90px_minmax(0,1fr)_150px_minmax(0,1fr)] items-center gap-3";
 
-const EMBEDDING_INTERNAL_MODEL = "DC-cognee-embedding";
 const DEFAULT_EMBEDDING_DIMENSION = 1024;
 const DEFAULT_EMBEDDING_BATCH_SIZE = 10;
 
@@ -766,11 +788,19 @@ function FeatureModelsBlock({
     [providerChannels],
   );
   const textFeatureGroups = useMemo(
-    () => splitFeatureModelGroups((feature) => !feature.requiresVision),
+    () =>
+      splitFeatureModelGroups(
+        FEATURE_MODEL_PRODUCT_GROUPS,
+        (feature) => !feature.requiresVision && feature.id !== "COGNEE",
+      ),
     [],
   );
   const visionFeatureGroups = useMemo(
-    () => splitFeatureModelGroups((feature) => Boolean(feature.requiresVision)),
+    () =>
+      splitFeatureModelGroups(
+        FEATURE_MODEL_PRODUCT_GROUPS,
+        (feature) => Boolean(feature.requiresVision),
+      ),
     [],
   );
   const savedChannelByProvider = useMemo(() => {
@@ -884,6 +914,15 @@ function FeatureModelsBlock({
         database={database}
       />
 
+      <CogneeModelsBlock
+        configuredProviders={configuredProviders}
+        newApiBaseUrl={newApiBaseUrl}
+        database={database}
+        providerChannels={providerChannels}
+        savedChannelByProvider={savedChannelByProvider}
+        savedEmbeddingModel={savedEmbeddingModel}
+      />
+
       {/* 功能模型映射 */}
       <h4 className="mt-5 text-xs font-medium text-foreground">
         {t("settings.modelConfig.featureModels.title")}
@@ -929,14 +968,6 @@ function FeatureModelsBlock({
         </Button>
       </div>
 
-      <EmbeddingModelBlock
-        configuredProviders={configuredProviders}
-        newApiBaseUrl={newApiBaseUrl}
-        database={database}
-        savedChannelByProvider={savedChannelByProvider}
-        savedEmbeddingModel={savedEmbeddingModel}
-      />
-
       <MediaModelsBlock
         configuredProviders={configuredProviders}
         newApiBaseUrl={newApiBaseUrl}
@@ -945,6 +976,66 @@ function FeatureModelsBlock({
         savedMediaModels={savedMediaModels}
       />
     </>
+  );
+}
+
+function CogneeModelsBlock({
+  configuredProviders,
+  newApiBaseUrl,
+  database,
+  providerChannels,
+  savedChannelByProvider,
+  savedEmbeddingModel,
+}: {
+  configuredProviders: readonly FeatureModelProvider[];
+  newApiBaseUrl: string;
+  database: NewApiDatabaseConfigInput | undefined;
+  providerChannels: Record<string, { upstreamKey: string; baseUrl: string }>;
+  savedChannelByProvider: Map<string, SavedProviderChannelConfig>;
+  savedEmbeddingModel: SavedEmbeddingModelConfig | undefined;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="mt-6 rounded-md border border-border/70 px-3 py-3">
+      <h4 className="text-xs font-medium text-foreground">
+        {t("settings.modelConfig.featureModels.groups.novelImport")}
+      </h4>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        {t("settings.modelConfig.featureModels.cogneeDescription")}
+      </p>
+
+      <div
+        className={cn(
+          FEATURE_ROW_GRID,
+          "mt-3 text-[11px] font-medium tracking-wide text-muted-foreground uppercase",
+        )}
+      >
+        <span>{t("settings.modelConfig.featureModels.colFeature")}</span>
+        <span>{t("settings.modelConfig.featureModels.colProvider")}</span>
+        <span>{t("settings.modelConfig.featureModels.colModel")}</span>
+      </div>
+      <div className="mt-2">
+        <FeatureModelRow
+          featureId="COGNEE"
+          defaultModel="DC-cognee-LLM"
+          requiresVision={false}
+          newApiBaseUrl={newApiBaseUrl}
+          database={database}
+          configuredProviders={configuredProviders}
+          providerChannels={providerChannels}
+          savedChannelByProvider={savedChannelByProvider}
+        />
+      </div>
+
+      <EmbeddingModelBlock
+        configuredProviders={configuredProviders}
+        newApiBaseUrl={newApiBaseUrl}
+        database={database}
+        savedChannelByProvider={savedChannelByProvider}
+        savedEmbeddingModel={savedEmbeddingModel}
+      />
+    </div>
   );
 }
 
@@ -1089,17 +1180,13 @@ function EmbeddingModelBlock({
       </p>
 
       <div className="mt-3 rounded-md border border-border/70 px-3 py-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)_100px_110px] items-center gap-3 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          <span>{t("settings.modelConfig.embeddingModel.colInternalModel")}</span>
+        <div className="grid grid-cols-[140px_minmax(0,1fr)_100px_110px] items-center gap-3 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           <span>{t("settings.modelConfig.embeddingModel.colProvider")}</span>
           <span>{t("settings.modelConfig.embeddingModel.colUpstreamModel")}</span>
           <span>{t("settings.modelConfig.embeddingModel.colDimension")}</span>
           <span>{t("settings.modelConfig.embeddingModel.colBatchSize")}</span>
         </div>
-        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)_100px_110px] items-center gap-3">
-          <code className="truncate rounded border border-border/60 bg-white/[0.03] px-2 py-1.5 text-[11px] text-muted-foreground">
-            {EMBEDDING_INTERNAL_MODEL}
-          </code>
+        <div className="mt-2 grid grid-cols-[140px_minmax(0,1fr)_100px_110px] items-center gap-3">
           <Select
             value={selectedProvider}
             onValueChange={(provider) => updateLocal({ provider: provider as FeatureModelProvider })}
@@ -1613,6 +1700,9 @@ function ProviderChannelRow({
   const upstreamKeyValue = channel?.upstreamKey ?? "";
   const savedKeyPreview = savedChannel?.configured ? savedChannel.upstreamKeyPreview : "";
   const upstreamPlaceholder = savedKeyPreview || "sk-...";
+  useEffect(() => {
+    if (!upstreamKeyValue) setRevealed(false);
+  }, [upstreamKeyValue]);
   const handleSync = async () => {
     if (!newApiBaseUrl.trim()) {
       toast.error(t("settings.modelConfig.featureModels.missingBaseUrl"));
@@ -1641,6 +1731,7 @@ function ProviderChannelRow({
       }
       if (upstreamKey) {
         clearFeatureProviderUpstreamKey(provider);
+        setRevealed(false);
       }
       toast.success(t("settings.modelConfig.featureModels.channelSynced"));
     } catch (error) {
@@ -1664,24 +1755,43 @@ function ProviderChannelRow({
         </Label>
         <div className="relative mt-1.5">
           <Input
+            name={`provider-${provider}-upstream-api-key`}
+            autoComplete="new-password"
+            data-1p-ignore="true"
+            data-lpignore="true"
             type={revealed ? "text" : "password"}
             value={upstreamKeyValue}
             onChange={(e) => updateFeatureProviderChannel(provider, { upstreamKey: e.target.value })}
-            placeholder={upstreamPlaceholder}
-            className="h-9 rounded-md border-input/80 pr-9 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30"
-          />
-          <button
-            type="button"
-            onClick={() => setRevealed((r) => !r)}
-            aria-label={
-              revealed
-                ? t("settings.mediaStorage.hideSecret")
-                : t("settings.mediaStorage.showSecret")
+            placeholder={
+              savedKeyPreview
+                ? t("settings.secretSavedPlaceholder", { preview: savedKeyPreview })
+                : upstreamPlaceholder
             }
-            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-          </button>
+            autoCapitalize="none"
+            spellCheck={false}
+            className={cn(
+              "h-9 rounded-md border-input/80 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30",
+              upstreamKeyValue ? "pr-9" : savedKeyPreview ? "pr-16" : "",
+            )}
+          />
+          {upstreamKeyValue ? (
+            <button
+              type="button"
+              onClick={() => setRevealed((r) => !r)}
+              aria-label={
+                revealed
+                  ? t("settings.mediaStorage.hideSecret")
+                  : t("settings.mediaStorage.showSecret")
+              }
+              className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          ) : savedKeyPreview ? (
+            <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+              {t("settings.secretSavedBadge")}
+            </span>
+          ) : null}
         </div>
       </div>
       <div>
@@ -1901,6 +2011,7 @@ function FeatureModelGroupBlock({
               key={feature.id}
               featureId={feature.id}
               defaultModel={feature.defaultModel}
+              requiresVision={Boolean(feature.requiresVision)}
               newApiBaseUrl={newApiBaseUrl}
               database={database}
               configuredProviders={configuredProviders}
@@ -1917,6 +2028,7 @@ function FeatureModelGroupBlock({
 function FeatureModelRow({
   featureId,
   defaultModel,
+  requiresVision,
   newApiBaseUrl,
   database,
   configuredProviders,
@@ -1925,6 +2037,7 @@ function FeatureModelRow({
 }: {
   featureId: string;
   defaultModel: string;
+  requiresVision: boolean;
   newApiBaseUrl: string;
   database: NewApiDatabaseConfigInput | undefined;
   configuredProviders: readonly FeatureModelProvider[];
@@ -1990,8 +2103,13 @@ function FeatureModelRow({
 
   return (
     <div className={FEATURE_ROW_GRID}>
-      <span className="text-xs text-foreground">
-        {t(`settings.modelConfig.featureModels.features.${featureId}`)}
+      <span className="flex flex-wrap items-center gap-1.5 text-xs text-foreground">
+        <span>{t(`settings.modelConfig.featureModels.features.${featureId}`)}</span>
+        {requiresVision ? (
+          <span className="rounded border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+            {t("settings.modelConfig.featureModels.multimodalRequiredBadge")}
+          </span>
+        ) : null}
       </span>
       <Select
         value={provider ?? ""}
@@ -2282,18 +2400,22 @@ function CloudinaryFields({
         onChange={(v) => onChange({ cloudName: v })}
       />
       <FieldRow
+        secret
+        name="cloudinary-api-key"
         label={t("settings.mediaStorage.fields.apiKey")}
         value={config.apiKey}
         onChange={(v) => onChange({ apiKey: v })}
         placeholder={apiKeyPreview || undefined}
+        savedPreview={apiKeyPreview}
       />
       <FieldRow
         secret
-        allowReveal={false}
+        name="cloudinary-api-secret"
         label={t("settings.mediaStorage.fields.apiSecret")}
         value={config.apiSecret}
         onChange={(v) => onChange({ apiSecret: v })}
         placeholder={apiSecretPreview || undefined}
+        savedPreview={apiSecretPreview}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.apiFolder")}
@@ -2323,18 +2445,21 @@ function AliyunOssFields({
   return (
     <>
       <FieldRow
+        name="aliyun-oss-access-key-id"
         label={t("settings.mediaStorage.fields.accessKeyId")}
         value={config.accessKeyId}
         onChange={(v) => onChange({ accessKeyId: v })}
         placeholder={accessKeyIdPreview || undefined}
+        savedPreview={accessKeyIdPreview}
       />
       <FieldRow
         secret
-        allowReveal={false}
+        name="aliyun-oss-access-key-secret"
         label={t("settings.mediaStorage.fields.accessKeySecret")}
         value={config.accessKeySecret}
         onChange={(v) => onChange({ accessKeySecret: v })}
         placeholder={accessKeySecretPreview || undefined}
+        savedPreview={accessKeySecretPreview}
       />
       <FieldRow
         label={t("settings.mediaStorage.fields.bucket")}
@@ -2360,18 +2485,26 @@ function FieldRow({
   value,
   onChange,
   secret = false,
-  allowReveal = true,
   placeholder,
+  name,
+  autoComplete,
+  savedPreview,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   secret?: boolean;
-  allowReveal?: boolean;
   placeholder?: string;
+  name?: string;
+  autoComplete?: string;
+  savedPreview?: string;
 }) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (!value) setRevealed(false);
+  }, [value]);
+  const hasSavedSecret = Boolean(savedPreview && !value);
   return (
     <div className="grid grid-cols-[120px_1fr] items-center gap-3">
       <Label className="justify-start text-[11px] font-normal tracking-wide text-muted-foreground uppercase">
@@ -2379,16 +2512,23 @@ function FieldRow({
       </Label>
       <div className="relative">
         <Input
+          name={name}
+          autoComplete={autoComplete ?? (secret ? "new-password" : undefined)}
           type={secret && !revealed ? "password" : "text"}
           value={value}
-          placeholder={placeholder}
+          placeholder={
+            hasSavedSecret
+              ? t("settings.secretSavedPlaceholder", { preview: savedPreview })
+              : placeholder
+          }
           onChange={(e) => onChange(e.target.value)}
           className={cn(
             "h-9 rounded-md border-input/80 focus-visible:border-ring/70 focus-visible:ring-1 focus-visible:ring-ring/30",
-            secret && "pr-9",
+            secret && value && "pr-9",
+            hasSavedSecret && "pr-16",
           )}
         />
-        {secret && allowReveal ? (
+        {secret && value ? (
           <button
             type="button"
             onClick={() => setRevealed((r) => !r)}
@@ -2401,6 +2541,10 @@ function FieldRow({
           >
             {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
+        ) : hasSavedSecret ? (
+          <span className="absolute top-1/2 right-2 -translate-y-1/2 rounded bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            {t("settings.secretSavedBadge")}
+          </span>
         ) : null}
       </div>
     </div>
