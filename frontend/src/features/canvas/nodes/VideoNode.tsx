@@ -172,6 +172,7 @@ import {
   submitFreezoneTextTranslate,
   submitFreezoneVideoCompose,
   submitFreezoneVideoErase,
+  submitFreezoneVideoEdit,
   submitFreezoneVideoGen,
   submitFreezoneVideoI2v,
   submitFreezoneVideoKeyframes,
@@ -240,6 +241,16 @@ const MODE_TABS: ReadonlyArray<{ key: VideoGenMode; labelKey: string }> = [
   { key: "imageToVideo", labelKey: "node.videoNode.tabs.imageToVideo" },
   { key: "firstLastFrame", labelKey: "node.videoNode.tabs.firstLastFrame" },
   { key: "imageReference", labelKey: "node.videoNode.tabs.imageReference" },
+  { key: "videoEdit", labelKey: "node.videoNode.tabs.videoEdit" },
+];
+
+// HappyHorse 的模式面板顺序：文生视频 → 首帧 → 图片参考 → 视频编辑。
+// 与上游文档 4 大功能一一对应，且与产品设计稿一致。
+const HAPPYHORSE_TAB_ORDER: ReadonlyArray<VideoGenMode> = [
+  "textToVideo",
+  "imageToVideo",
+  "imageReference",
+  "videoEdit",
 ];
 
 // 各 genMode 对上游引用数量的硬上限。UI 用这张表把后端字段约束（多图 / 多模态
@@ -286,7 +297,12 @@ const VIDEO_PARAM_ROW_CLASS = "mb-4 gap-2";
 const VIDEO_COUNT_OPTION_BASE_CLASS =
   "block w-full rounded-[6px] px-3 py-1.5 text-left text-xs transition-colors";
 const VIDEO_MODE_POPOVER_CLASS =
-  `nodrag nowheel fixed z-[10000] w-[132px] overflow-hidden p-1 ${NODE_FLOATING_PANEL_SURFACE_CLASS}`;
+  `nodrag nowheel fixed z-[10000] w-[132px] overflow-visible p-1 ${NODE_FLOATING_PANEL_SURFACE_CLASS}`;
+// 禁用模式的 hover 提示气泡：悬浮在菜单右侧，深色圆角小胶囊，与设计稿一致。
+const VIDEO_MODE_TOOLTIP_CLASS =
+  "pointer-events-none absolute left-full top-1/2 z-[10001] ml-2 -translate-y-1/2 " +
+  "whitespace-nowrap rounded-md bg-[#1f1f22] px-2.5 py-1.5 text-[11px] font-medium " +
+  "text-white/90 shadow-lg ring-1 ring-white/10";
 const DEFAULT_DURATION_MIN = 5;
 const DEFAULT_DURATION_MAX = 15;
 
@@ -402,6 +418,24 @@ function isHappyHorseVideoModel(modelId: string | null | undefined): boolean {
   return normalized.includes("happyhorse10");
 }
 
+// 某 genMode 是否被指定模型支持（与 GenModeSelect 的可见 tab 口径一致）：
+// videoEdit 是 HappyHorse 专属；firstLastFrame / allReference 是非 HappyHorse 专属。
+// 切换模型时用它判断是否要重置残留 genMode，避免提交打到不支持的端点。
+function isVideoModeSupportedByModel(
+  mode: VideoGenMode,
+  modelId: string | null | undefined,
+): boolean {
+  if (isHappyHorseVideoModel(modelId)) {
+    return (
+      mode === "textToVideo" ||
+      mode === "imageToVideo" ||
+      mode === "imageReference" ||
+      mode === "videoEdit"
+    );
+  }
+  return mode !== "videoEdit";
+}
+
 function videoModelReferenceDisabledReason(
   modelId: string | null | undefined,
   counts: { images: number; videos: number; audios: number },
@@ -502,6 +536,16 @@ function referenceImageUrl(node: CanvasNode | undefined | null): string | null {
     return data.previewImageUrl || data.imageUrl || null;
   }
   return null;
+}
+
+// 上游「视频引用」：视频节点自带 videoUrl，但从资产库选入的视频是 upload 节点，
+// 地址同样写在 data.videoUrl。所以「是不是视频上游」应按「存在非空 data.videoUrl」
+// 判定，而非节点类型——否则资产库视频会被漏认（HappyHorse 不自动切 videoEdit、
+// 提交找不到 videoUrl），还会被 referenceImageUrl / isUploadNode 误当图片。
+function referenceVideoUrl(node: CanvasNode | undefined | null): string | null {
+  if (!node) return null;
+  const url = (node.data as { videoUrl?: unknown }).videoUrl;
+  return typeof url === "string" && url.length > 0 ? url : null;
 }
 
 function submittableImageUrl(
@@ -941,24 +985,23 @@ export const VideoNode = memo(
       );
       const items: ReferenceMediaItem[] = [];
       for (const node of upstream) {
-        if (isVideoNode(node)) {
-          const videoUrl =
-            typeof node.data.videoUrl === "string" &&
-            node.data.videoUrl.length > 0
-              ? node.data.videoUrl
-              : null;
-          if (!videoUrl) continue;
+        const videoUrl = referenceVideoUrl(node);
+        if (videoUrl) {
+          const vdata = node.data as {
+            previewImageUrl?: string | null;
+            displayName?: string | null;
+          };
           const thumbUrl =
-            typeof node.data.previewImageUrl === "string" &&
-            node.data.previewImageUrl.length > 0
-              ? node.data.previewImageUrl
+            typeof vdata.previewImageUrl === "string" &&
+            vdata.previewImageUrl.length > 0
+              ? vdata.previewImageUrl
               : null;
           items.push({
             kind: "video",
             nodeId: node.id,
             videoUrl,
             thumbUrl,
-            displayName: node.data.displayName ?? null,
+            displayName: vdata.displayName ?? null,
           });
           continue;
         }
@@ -1137,13 +1180,9 @@ export const VideoNode = memo(
       let videos = 0;
       let audios = 0;
       for (const node of upstreamNodes) {
-        if (isVideoNode(node)) {
-          if (
-            typeof node.data.videoUrl === "string" &&
-            node.data.videoUrl.length > 0
-          ) {
-            videos += 1;
-          }
+        if (referenceVideoUrl(node)) {
+          // 视频节点或携带 videoUrl 的 upload 节点（资产库选入的视频）都算视频。
+          videos += 1;
         } else if (isAudioNode(node)) {
           if (
             typeof node.data.audioUrl === "string" &&
@@ -1152,6 +1191,32 @@ export const VideoNode = memo(
             audios += 1;
           }
         } else if (referenceImageUrl(node)) {
+          images += 1;
+        }
+      }
+      return { images, videos, audios };
+    }, [upstreamNodes]);
+    // HappyHorse 的模式可用性由「上游节点类型」决定，而非素材是否已填。空的图片
+    // 节点（尚未生成/上传图）也应让「首帧 / 图片参考」可选——用户先连节点、后填图
+    // 是正常顺序。所以这里按节点类型统计，区别于 upstreamCounts 的「已解析 URL」口径。
+    const upstreamTypeCounts = useMemo(() => {
+      let images = 0;
+      let videos = 0;
+      let audios = 0;
+      for (const node of upstreamNodes) {
+        // 携带 videoUrl 的 upload 节点（资产库视频）先判为视频，避免落到下面
+        // 的 isUploadNode 分支被误算成图片。空的 video 节点（尚未生成）仍按类型算视频。
+        if (isVideoNode(node) || referenceVideoUrl(node)) {
+          videos += 1;
+        } else if (isAudioNode(node)) {
+          audios += 1;
+        } else if (
+          isImageGenNode(node) ||
+          isUploadNode(node) ||
+          isImageEditNode(node) ||
+          isExportImageNode(node) ||
+          isStoryboardGenNode(node)
+        ) {
           images += 1;
         }
       }
@@ -1528,10 +1593,18 @@ export const VideoNode = memo(
               { audioUrl: sel.url, displayName },
             );
           } else if (sel.media === "video") {
+            // 资产库视频作为「上游视频引用素材」：建 referenceOnly 的 video 节点，
+            // 它能播放视频本体、被 isVideoNode 识别、下游自动切 videoEdit。之前建的是
+            // 只渲染图片的 upload 节点——即便塞了 videoUrl 也不显示、也不被识别成视频。
             newId = addNode(
-              CANVAS_NODE_TYPES.upload,
+              CANVAS_NODE_TYPES.video,
               { x: baseX, y },
-              { videoUrl: sel.url, displayName },
+              {
+                videoUrl: sel.url,
+                aspectRatio: data.aspectRatio,
+                displayName,
+                referenceOnly: true,
+              } as Partial<VideoNodeData>,
             );
           } else {
             newId = addNode(
@@ -1549,7 +1622,7 @@ export const VideoNode = memo(
         });
         state.autoGroupSpawn(id, newIds, { label: '资产参考组' });
       },
-      [addEdge, addNode, id],
+      [addEdge, addNode, data.aspectRatio, id],
     );
 
     const handleTranslatePrompt = useCallback(async () => {
@@ -1606,16 +1679,47 @@ export const VideoNode = memo(
     // accepts 1-9 images and is the more general entry point; the 首尾帧 keyframe
     // workflow stays reachable via the explicit empty-state CTA. Only fires while
     // data.genMode is undefined — once the user picks any tab we respect that.
+    // HappyHorse 走下面的统一状态机，不参与这条默认。
     useEffect(() => {
+      if (isHappyHorseModel) return;
       if (data.genMode != null) return;
       if (referenceImages.length === 0) return;
-      updateNodeData(id, { genMode: isHappyHorseModel ? "imageToVideo" : "allReference" });
+      updateNodeData(id, { genMode: "allReference" });
     }, [data.genMode, id, isHappyHorseModel, referenceImages.length, updateNodeData]);
 
+    // HappyHorse 的模式完全由上游节点类型决定（文档的 4 大功能一一对应），这里用
+    // 一条统一状态机替代分散的兜底 effect，避免多个 effect 互相打架：
+    //   - 上游有视频            → 视频编辑 (videoEdit / video_url)
+    //   - 上游图片 >1 张        → 图片参考 (imageReference / reference_images 1-9)
+    //   - 上游图片 == 1 张      → 默认首帧 (imageToVideo / image_url)，但尊重用户
+    //                             主动切到的「图片参考」
+    //   - 无上游                → 文生视频 (textToVideo)
+    // 每次都纠正，确保 genMode 不会卡在与当前上游不匹配的模式（否则 submit 时会被
+    // 静默截断 / 触发上游互斥报错）。
     useEffect(() => {
-      if (!isHappyHorseModel || genMode !== "allReference") return;
-      updateNodeData(id, { genMode: upstreamCounts.images > 0 ? "imageToVideo" : "textToVideo" });
-    }, [genMode, id, isHappyHorseModel, upstreamCounts.images, updateNodeData]);
+      if (!isHappyHorseModel) return;
+      const { images, videos } = upstreamTypeCounts;
+      let target: VideoGenMode;
+      if (videos > 0) {
+        target = "videoEdit";
+      } else if (images > 1) {
+        target = "imageReference";
+      } else if (images === 1) {
+        target = genMode === "imageReference" ? "imageReference" : "imageToVideo";
+      } else {
+        target = "textToVideo";
+      }
+      if (genMode !== target) {
+        updateNodeData(id, { genMode: target });
+      }
+    }, [
+      genMode,
+      id,
+      isHappyHorseModel,
+      upstreamTypeCounts.images,
+      upstreamTypeCounts.videos,
+      updateNodeData,
+    ]);
 
     // Audio refs only carry meaning under the omni-gen (allReference) path —
     // textToVideo / firstLastFrame / imageToVideo discard them. So when an
@@ -1651,9 +1755,10 @@ export const VideoNode = memo(
     // 也要强制切走，否则会停在 textToVideo 把已连素材丢弃。图片/音频统一走
     // allReference（全能参考），与「首次接入图片」的默认保持一致。
     useEffect(() => {
+      if (isHappyHorseModel) return;
       if (genMode !== "textToVideo") return;
       if (upstreamCounts.images === 0 && upstreamCounts.audios === 0) return;
-      updateNodeData(id, { genMode: isHappyHorseModel ? "imageToVideo" : "allReference" });
+      updateNodeData(id, { genMode: "allReference" });
     }, [
       genMode,
       isHappyHorseModel,
@@ -1668,9 +1773,10 @@ export const VideoNode = memo(
     // 上游强制切 allReference」是同一类兜底逻辑。每次都纠正，避免用户在 >2
     // 图状态下被卡在 firstLastFrame 触发 submit 时被静默截断成两张。
     useEffect(() => {
+      if (isHappyHorseModel) return;
       if (genMode !== "firstLastFrame") return;
       if (upstreamCounts.images <= 2) return;
-      updateNodeData(id, { genMode: isHappyHorseModel ? "imageToVideo" : "allReference" });
+      updateNodeData(id, { genMode: "allReference" });
     }, [genMode, isHappyHorseModel, upstreamCounts.images, id, updateNodeData]);
 
     useEffect(
@@ -2005,6 +2111,45 @@ export const VideoNode = memo(
               canvasId,
               nodeId: targetId,
             });
+        } else if (genMode === "videoEdit") {
+          // HappyHorse 视频编辑：1 个源视频 + 0-5 张参考图 → video_url + reference_images。
+          const upstream = collectUpstream();
+          const videoUrl =
+            upstream
+              .map((node) => referenceVideoUrl(node) ?? "")
+              .find((url) => url.length > 0) ?? "";
+          if (!videoUrl) {
+            console.warn("[video-node] videoEdit submit without upstream video");
+            updateNodeData(id, {
+              isGenerating: false,
+              generationStartedAt: null,
+            });
+            return;
+          }
+          const allImageUrls = collectUpstreamImageUrls();
+          if (allImageUrls.length > 5) {
+            // 视频编辑上游硬上限 5 张参考图；超出的静默截断会让用户以为全用上了。
+            toast.warning(
+              `视频编辑最多支持 5 张参考图，已使用前 5 张（忽略其余 ${allImageUrls.length - 5} 张）`,
+            );
+          }
+          const imageUrls = allImageUrls.slice(0, 5);
+          doSubmit = (targetId) =>
+            submitFreezoneVideoEdit(projectId, {
+              videoUrl,
+              imageUrls,
+              prompt: composedPrompt,
+              cameraTemplateId,
+              aspectRatio: submitAspectRatio,
+              resolution: qualityToResolution(quality),
+              durationSeconds: durationClamped,
+              audioSetting: "auto",
+              generateAudio,
+              model: modelId,
+              genMode,
+              canvasId,
+              nodeId: targetId,
+            });
         } else if (genMode === "allReference") {
           if (isHappyHorseModel) {
             void showErrorDialog(
@@ -2028,13 +2173,11 @@ export const VideoNode = memo(
           let audioCount = 0;
           for (const node of upstream) {
             if (references.length >= 12) break;
-            if (isVideoNode(node)) {
-              const url =
-                typeof node.data.videoUrl === "string"
-                  ? node.data.videoUrl
-                  : "";
-              if (url && videoCount < 3) {
-                references.push({ type: "video", url });
+            const videoRefUrl = referenceVideoUrl(node);
+            if (videoRefUrl) {
+              // 视频节点或携带 videoUrl 的 upload 节点（资产库视频）统一收集。
+              if (videoCount < 3) {
+                references.push({ type: "video", url: videoRefUrl });
                 videoCount += 1;
               }
             } else if (isAudioNode(node)) {
@@ -2964,7 +3107,11 @@ export const VideoNode = memo(
                   <GenModeSelect
                     value={genMode}
                     modelId={selectedVideoModel?.apiModel ?? selectedVideoModel?.id ?? modelId}
-                    upstreamCounts={upstreamCounts}
+                    // HappyHorse 的可选模式由上游节点类型（含未填图的空节点）决定，
+                    // 其余模型仍按已解析素材 URL 计数。
+                    upstreamCounts={
+                      isHappyHorseModel ? upstreamTypeCounts : upstreamCounts
+                    }
                     onChange={(nextMode) => updateNodeData(id, { genMode: nextMode })}
                   />
                   <NodeContextPromptPaletteButton
@@ -3027,7 +3174,19 @@ export const VideoNode = memo(
                   <ProviderModelPicker
                     selectedModelId={modelId}
                     onChange={(nextModelId) => {
-                      updateNodeData(id, { model: nextModelId });
+                      // 切换模型后，若当前 genMode 不被新模型支持（如 HappyHorse
+                      // 专属的 videoEdit 切到普通模型），重置为通用安全值 textToVideo，
+                      // 让状态机按新模型 + 上游重新推导；否则残留模式会在提交时打到
+                      // 不支持的端点被后端 400（界面还停在错误的 tab）。
+                      const resetGenMode =
+                        data.genMode != null &&
+                        !isVideoModeSupportedByModel(data.genMode, nextModelId);
+                      updateNodeData(id, {
+                        model: nextModelId,
+                        ...(resetGenMode
+                          ? { genMode: "textToVideo" as VideoGenMode }
+                          : {}),
+                      });
                       // 记住这次选择，后续新建的视频节点将继承它。
                       writeLastVideoModel(nextModelId);
                     }}
@@ -3228,8 +3387,36 @@ function videoModeDisabledReason(
   modelId: string | null | undefined,
   upstreamCounts: { videos: number; images: number; audios: number },
 ): string | null {
-  if (mode === "allReference" && isHappyHorseVideoModel(modelId)) {
-    return "HappyHorse 不支持全能参考模式";
+  // HappyHorse 的模式可用性完全由上游节点类型决定（文档 4 大功能）：
+  //   文生视频  — 仅无上游时可用
+  //   首帧      — 仅上游正好 1 张图片时可用
+  //   图片参考  — 上游 1~9 张图片时可用
+  //   视频编辑  — 仅上游有 1 个视频时可用
+  // 不可用时返回 hover 文案（提示用户需要连接什么）。
+  if (isHappyHorseVideoModel(modelId)) {
+    const { images, videos } = upstreamCounts;
+    switch (mode) {
+      case "textToVideo":
+        if (videos > 0) return "已连接视频节点，请使用「视频编辑」";
+        if (images > 0) return "已连接图片节点，请选择「首帧」或「图片参考」";
+        return null;
+      case "imageToVideo": // 首帧 (i2v)
+        if (videos > 0) return "已连接视频节点，「首帧」不可用";
+        if (images === 0) return "需要连接图片节点（1个）";
+        if (images > 1) return "「首帧」仅支持单张图片，请用「图片参考」";
+        return null;
+      case "imageReference": // 图片参考 (r2v)
+        if (videos > 0) return "已连接视频节点，「图片参考」不可用";
+        if (images === 0) return "需要连接图片节点（1~9个）";
+        if (images > 9) return "「图片参考」最多支持 9 张图片";
+        return null;
+      case "videoEdit":
+        if (videos === 0) return "需要连接视频节点（1个）";
+        if (videos > 1) return "「视频编辑」仅支持连接 1 个视频节点";
+        return null;
+      default:
+        return "HappyHorse 不支持该模式";
+    }
   }
   if (upstreamCounts.videos > 0 && mode !== "allReference") {
     return "上游含视频素材时只能用「全能参考」";
@@ -3254,11 +3441,36 @@ function GenModeSelect({ value, modelId, upstreamCounts, onChange }: GenModeSele
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredKey, setHoveredKey] = useState<VideoGenMode | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{
     left: number;
     top: number;
   } | null>(null);
-  const activeTab = MODE_TABS.find((tab) => tab.key === value) ?? MODE_TABS[0];
+  // HappyHorse 的模式面板对齐文档 4 大功能：文生视频 / 首帧 / 图片参考 / 视频编辑。
+  //   - 隐藏「首尾帧」「全能参考」：HappyHorse 无这两种能力，点了只会报错。
+  //   - 把「图生视频」显示为「首帧」：它本就是单图首帧 i2v，直接叫「首帧」跟「图片
+  //     参考」一眼分清。
+  //   - 上游接入视频后，「首帧」「图片参考」整项隐藏（文档：视频节点下没有这两个
+  //     选项），只保留「文生视频」(禁用) 与「视频编辑」。
+  // 非 HappyHorse 不暴露「视频编辑」(它是 HappyHorse 专属功能)。
+  const visibleTabs = useMemo(() => {
+    if (!isHappyHorseVideoModel(modelId)) {
+      return MODE_TABS.filter((tab) => tab.key !== "videoEdit");
+    }
+    const order =
+      upstreamCounts.videos > 0
+        ? (["textToVideo", "videoEdit"] as VideoGenMode[])
+        : HAPPYHORSE_TAB_ORDER;
+    return order
+      .map((key) => MODE_TABS.find((tab) => tab.key === key))
+      .filter((tab): tab is (typeof MODE_TABS)[number] => Boolean(tab))
+      .map((tab) =>
+        tab.key === "imageToVideo"
+          ? { ...tab, labelKey: "node.videoNode.tabs.firstFrame" }
+          : tab,
+      );
+  }, [modelId, upstreamCounts.videos]);
+  const activeTab = visibleTabs.find((tab) => tab.key === value) ?? visibleTabs[0];
 
   const syncPopoverPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -3272,7 +3484,10 @@ function GenModeSelect({ value, modelId, upstreamCounts, onChange }: GenModeSele
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setHoveredKey(null);
+      return;
+    }
     syncPopoverPosition();
     const onPointerDown = (event: MouseEvent) => {
       if (
@@ -3319,31 +3534,45 @@ function GenModeSelect({ value, modelId, upstreamCounts, onChange }: GenModeSele
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          {MODE_TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = tab.key === value;
             const disabledReason = videoModeDisabledReason(tab.key, modelId, upstreamCounts);
             const isDisabled = disabledReason != null && !isActive;
+            // 禁用按钮在多数浏览器里不触发 mouse 事件，hover 提示挂在外层 div 上；
+            // 提示气泡定位到菜单右侧，与设计稿一致。
             return (
-              <button
+              <div
                 key={tab.key}
-                type="button"
-                disabled={isDisabled}
-                title={disabledReason ?? undefined}
-                onClick={() => {
-                  if (isDisabled) return;
-                  onChange(tab.key);
-                  setIsOpen(false);
-                }}
-                className={`block w-full rounded-[6px] px-3 py-1.5 text-left text-xs transition-colors ${
-                  isActive
-                    ? VIDEO_PARAM_ACTIVE_BUTTON_CLASS
-                    : isDisabled
-                      ? "cursor-not-allowed text-text-muted/40"
-                      : "text-text-muted/95 hover:bg-white/[0.11] hover:text-text-dark"
-                }`}
+                className="relative"
+                onMouseEnter={() =>
+                  isDisabled ? setHoveredKey(tab.key) : setHoveredKey(null)
+                }
+                onMouseLeave={() =>
+                  setHoveredKey((prev) => (prev === tab.key ? null : prev))
+                }
               >
-                {t(tab.labelKey)}
-              </button>
+                <button
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => {
+                    if (isDisabled) return;
+                    onChange(tab.key);
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full rounded-[6px] px-3 py-1.5 text-left text-xs transition-colors ${
+                    isActive
+                      ? VIDEO_PARAM_ACTIVE_BUTTON_CLASS
+                      : isDisabled
+                        ? "cursor-not-allowed text-text-muted/40"
+                        : "text-text-muted/95 hover:bg-white/[0.11] hover:text-text-dark"
+                  }`}
+                >
+                  {t(tab.labelKey)}
+                </button>
+                {isDisabled && hoveredKey === tab.key && disabledReason && (
+                  <div className={VIDEO_MODE_TOOLTIP_CLASS}>{disabledReason}</div>
+                )}
+              </div>
             );
           })}
         </div>,
