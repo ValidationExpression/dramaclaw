@@ -20,6 +20,7 @@ CE 三个容器：`api` + `newapi`（内置 DramaClaw 网关，切到自定义/�
 
 ```bash
 git clone https://github.com/dramaclaw/dramaclaw.git
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # 只有源码构建需要；镜像模式不用
 cd dramaclaw
 cp .env.example .env
 ```
@@ -28,7 +29,7 @@ cp .env.example .env
 
 | 文件 | 模式 | 命令 |
 |---|---|---|
-| `docker-compose.yml` | 源码构建（默认）—— 从本地 checkout / git `main` 构建 `api`、`web` 与内置网关 | `docker compose up -d --build` |
+| `docker-compose.yml` | 源码构建（默认）—— `api`、`web` 用本仓 checkout，内置网关用 `../dramaclaw-gateway`（`DRAMACLAW_GATEWAY_SRC` 可改成别的路径或 git 地址） | `docker compose up -d --build` |
 | `docker-compose.release.yml` | 只拉镜像，不构建 | `docker compose -f docker-compose.release.yml up -d` |
 
 两者共享的关键点（定义在 `docker-compose.release.yml` 里，`docker-compose.yml` 通过 `extends` 复用）：
@@ -105,15 +106,15 @@ docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
 
 ## 6. 升级
 
-源码构建：
+源码构建（两个 checkout 都拉）：
 
 ```bash
+git -C ../dramaclaw-gateway pull   # 从旧 checkout 升级后的第一次：git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway
 git pull
-# 编辑 .env：DRAMACLAW_VERSION=2.1.0（发布说明要求时同时改 DRAMACLAW_GATEWAY_VERSION）
 docker compose up -d --build
 ```
 
-`docker compose up -d --build` 会连内置网关一起从 `dramaclaw-gateway` 的 git 重新拉取并构建（Go + bun，要几分钟）。只改了 DramaClaw 代码时，只重建两个本地服务即可：`docker compose up -d --build api web`。
+`docker compose up -d --build` 会连内置网关一起从 `../dramaclaw-gateway` 重新构建（Go + bun，要几分钟）；想要更新的网关就到那个目录 `git pull`。只改了 DramaClaw 代码时，只重建两个本地服务：`docker compose up -d --build api web`；只改了网关时：`docker compose up -d --build newapi`。
 
 镜像模式：
 
@@ -151,9 +152,9 @@ docker compose up -d
 
 | 以前 | 现在 |
 |---|---|
-| `docker compose up -d --build`（官方网关，源码） | 同一命令；多了内置网关（默认只绑本机、闲置待命） |
+| `docker compose up -d --build`（官方网关，源码） | 同一命令，但要**先** `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway`（不想 clone 就在 `.env` 设 `DRAMACLAW_GATEWAY_SRC=https://github.com/dramaclaw/dramaclaw-gateway.git#main`）；现在会连内置网关一起构建（默认只绑本机、闲置待命）。没 clone 会报 `unable to prepare context: path ".../dramaclaw-gateway" not found` |
 | `docker compose -f docker-compose.release.yml up -d` | 同一命令；网关镜像为 `claymorelab/dramaclaw-gateway` |
-| `docker compose -f docker-compose.selfhosted.yml up -d --build` | 改用 `docker compose up -d --build`；`newapi-data` 卷复用，先备份（rc.21 → rc.24 只加表） |
+| `docker compose -f docker-compose.selfhosted.yml up -d --build` | 按上一行先 clone 网关，再 `docker compose up -d --build`；`newapi-data` 卷复用，先备份（rc.21 → rc.24 只加表） |
 | `docker compose -f docker-compose.selfhosted.release.yml up -d` | 改用 `docker compose -f docker-compose.release.yml up -d`；同上 |
 | `.env` 里的 `NEWAPI_BASE_URL` / `NEWAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | 含义不变，继续生效 |
 

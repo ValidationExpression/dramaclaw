@@ -20,6 +20,7 @@ Two compose files ship in the repo: `docker-compose.yml` builds all three servic
 
 ```bash
 git clone https://github.com/dramaclaw/dramaclaw.git
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git   # only for the source build; image mode does not need it
 cd dramaclaw
 cp .env.example .env
 ```
@@ -28,7 +29,7 @@ Two files, already set for you, no changes needed:
 
 | File | Mode | Command |
 |---|---|---|
-| `docker-compose.yml` | Source build (default) — builds `api`, `web`, and the bundled gateway from the checkout / git `main` | `docker compose up -d --build` |
+| `docker-compose.yml` | Source build (default) — builds `api` and `web` from this checkout and the bundled gateway from `../dramaclaw-gateway` (override with `DRAMACLAW_GATEWAY_SRC`, a path or a git URL) | `docker compose up -d --build` |
 | `docker-compose.release.yml` | Image only — pulls published images, never builds | `docker compose -f docker-compose.release.yml up -d` |
 
 Key points shared by both (defined once in `docker-compose.release.yml`, reused by `docker-compose.yml` via `extends`):
@@ -105,15 +106,15 @@ docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
 
 ## 6. Upgrades
 
-Source build:
+Source build (both checkouts):
 
 ```bash
+git -C ../dramaclaw-gateway pull   # first time after upgrading from an older checkout: git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway
 git pull
-# edit .env: DRAMACLAW_VERSION=2.1.0 (and DRAMACLAW_GATEWAY_VERSION if the release notes say so)
 docker compose up -d --build
 ```
 
-`docker compose up -d --build` also re-fetches and rebuilds the bundled gateway from `dramaclaw-gateway` git (Go + bun, several minutes). When only DramaClaw code changed, rebuild just the two local services: `docker compose up -d --build api web`.
+`docker compose up -d --build` also rebuilds the bundled gateway from `../dramaclaw-gateway` (Go + bun, several minutes); `git pull` there too when you want a newer gateway. When only DramaClaw code changed, rebuild just the two local services: `docker compose up -d --build api web`; when only the gateway changed, `docker compose up -d --build newapi`.
 
 Image mode:
 
@@ -151,9 +152,9 @@ The script copies only missing files, never overwrites or deletes the source, an
 
 | Before | Now |
 |---|---|
-| `docker compose up -d --build` (official gateway, source build) | Same command; now also builds the bundled gateway (defaults to host-only, idle until used) |
+| `docker compose up -d --build` (official gateway, source build) | Same command, **after** `git clone https://github.com/dramaclaw/dramaclaw-gateway.git ../dramaclaw-gateway` (or `DRAMACLAW_GATEWAY_SRC=https://github.com/dramaclaw/dramaclaw-gateway.git#main` in `.env` to skip the clone); it now also builds the bundled gateway (host-only by default, idle until used). Without the clone the build stops with `unable to prepare context: path ".../dramaclaw-gateway" not found` |
 | `docker compose -f docker-compose.release.yml up -d` | Same command; the gateway image is now `claymorelab/dramaclaw-gateway` |
-| `docker compose -f docker-compose.selfhosted.yml up -d --build` | Use `docker compose up -d --build` instead; the `newapi-data` volume is reused — back it up first (rc.21 → rc.24 only adds tables) |
+| `docker compose -f docker-compose.selfhosted.yml up -d --build` | Clone the gateway as above, then `docker compose up -d --build`; the `newapi-data` volume is reused — back it up first (rc.21 → rc.24 only adds tables) |
 | `docker compose -f docker-compose.selfhosted.release.yml up -d` | Use `docker compose -f docker-compose.release.yml up -d` instead; same as above |
 | `.env`'s `NEWAPI_BASE_URL` / `NEWAPI_API_KEY` / `ST_*_PORT` / `INSTALL_WORLD` / `NEWAPI_PROVISIONER_ENABLED` | Unchanged, still effective |
 
