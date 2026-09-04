@@ -176,7 +176,7 @@ Every step has its own interface — run them in order, skip steps, resume from 
 
 ## System Requirements
 
-DramaClaw runs all inference through a **remote OpenAI-compatible gateway** — nothing runs models on your machine — so the local footprint is light. An ordinary laptop or a small VPS is enough.
+DramaClaw runs all inference through an **OpenAI-compatible gateway** — either the official RelayClaw service or the bundled [dramaclaw-gateway](https://github.com/dramaclaw/dramaclaw-gateway) routing to providers you configure. Nothing runs models on your machine, so the local footprint is light. An ordinary laptop or a small VPS is enough.
 
 | Item | Requirement |
 |---|---|
@@ -185,9 +185,9 @@ DramaClaw runs all inference through a **remote OpenAI-compatible gateway** — 
 | **Disk** | A few GB for images plus generated media/state under the `ce-data` volume (no hard minimum) |
 | **OS** | macOS (Apple Silicon / Intel), Windows (Docker Desktop + WSL2 backend), Linux (Docker Engine + compose plugin) |
 | **Docker** | Docker + `docker compose` |
-| **Ports** | `8080` web UI · `8780` REST API · `3000` bundled gateway (self-hosted variant only) |
+| **Ports** | `8080` web UI · `8780` REST API · `3000` bundled gateway admin UI (host-only by default, can be widened) |
 | **Datastores** | None required — no Postgres, Redis, Celery or Ray. Tasks run in-process; state lives on the local filesystem (SQLite + files) |
-| **Network** | Outbound access to the model gateway (official `relayclaw.cdnfg.com`, or your own BYO endpoint) |
+| **Network** | Outbound access to the official gateway `relayclaw.cdnfg.com`, and/or to the model providers you configure in the bundled gateway |
 
 > Local development (non-Docker) additionally needs Python 3.11–3.12 + [`uv`](https://docs.astral.sh/uv/) + `ffmpeg`. Full prerequisites in the [Self-hosting guide](docs/en/guides/self-hosting.md).
 
@@ -197,26 +197,37 @@ DramaClaw runs all inference through a **remote OpenAI-compatible gateway** — 
 
 ### Docker (recommended)
 
+Every GitHub Release publishes multi-arch (amd64/arm64) images to Docker Hub.
+
+**Source build (default)** — `docker compose up -d --build` builds all three: `api`, `web`, and the bundled gateway.
+
 ```bash
 git clone https://github.com/dramaclaw/dramaclaw.git
 cd dramaclaw
 
 cp .env.example .env
 # Edit .env — set PROMPT_EXPORT_PASSWORD to a non-default value.
-# NEWAPI_BASE_URL defaults to the official gateway; add your DC key here or paste it in the UI next.
 
-docker compose up -d --build   # starts two services: api / web
+docker compose up -d --build   # builds and starts three services: api / newapi (bundled gateway) / web
 ```
 
-Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Model Config → Official**, paste your DC key (get one at <https://relayclaw.cdnfg.com>) and you're ready — no model mapping needed. Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
-
-**No build needed** — every GitHub Release publishes multi-arch (amd64/arm64) images to Docker Hub, so a single file is enough to run:
+**No build** — pull published images instead:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/dramaclaw/dramaclaw/main/docker-compose.release.yml
 docker compose -f docker-compose.release.yml up -d
-# Pin a version (defaults to latest): DRAMACLAW_VERSION=1.0.1 docker compose -f docker-compose.release.yml up -d
 ```
+
+Open the app at <http://localhost:8080>; the REST API is at <http://localhost:8780>. In **Settings → Model Config** pick one of:
+
+- **Official** — paste your DC key (get one at <https://relayclaw.cdnfg.com>); no model mapping needed. The bundled gateway stays idle.
+- **Custom** — one click initializes the bundled `newapi` gateway; then add your own upstream channels.
+- **Local + Official Hybrid** — official for the main pipeline, bundled gateway for extra channels.
+
+Full steps in the [Quick Start](docs/en/getting-started/quickstart.md).
+
+Pin versions or switch registry in `.env` (`DRAMACLAW_VERSION`, `DRAMACLAW_GATEWAY_VERSION`, `DRAMACLAW_IMAGE_PREFIX`) — these apply to the image mode (`docker-compose.release.yml`) only. Mainland China: set `DRAMACLAW_IMAGE_PREFIX=claymore-registry.cn-chengdu.cr.aliyuncs.com/dramaclaw` and pin both versions (the ACR mirror carries pinned tags only).
+
+> Migrating from an older checkout? `docker-compose.selfhosted.yml` / `docker-compose.selfhosted.release.yml` have been removed — use `docker-compose.yml` (source build) / `docker-compose.release.yml` (images). Service names and the `ce-data` / `newapi-data` volumes are unchanged; existing data is reused as-is. The bundled gateway's port now binds only to `127.0.0.1` by default; set `ST_NEWAPI_BIND=0.0.0.0` in `.env` if you need remote access to it.
 
 ### Local development (uv + Python 3.11+)
 
@@ -234,22 +245,29 @@ uv run novelvideo api --port 8780   # start the REST API (CE defaults to inline 
 
 ## Supported Models & Providers
 
-DramaClaw stays model-neutral — all text/image/video/audio models connect through a single **OpenAI-compatible gateway**, in two ways:
+DramaClaw stays model-neutral — all text / image / video / audio models connect through an **OpenAI-compatible gateway**. Pick the mode in **Settings → Model Config**:
 
-- **DramaClaw official key (recommended)**: `docker compose up`, open <http://localhost:8080> → Settings → Model Config → Official, paste your DC key, save. Works instantly — no model mapping needed. Get a key at <https://relayclaw.cdnfg.com>.
-- **Bring your own gateway (BYO)**: point `NEWAPI_BASE_URL` at your own OpenAI-compatible endpoint and map model names (see [Configuring Models](docs/en/getting-started/configuring-models.md)).
+- **Official (recommended)** — paste your DC key (get one at <https://relayclaw.cdnfg.com>), save, done. RelayClaw already ships every model mapping DramaClaw needs; nothing to configure.
+- **Custom** — one click initializes the bundled `dramaclaw-gateway`, then add your own provider channels (API keys, model IDs) in its admin UI. Every model DramaClaw calls goes through your channels.
+- **Local + Official Hybrid** — keep the official models for the main pipeline and add extra channels (for example a local ComfyUI video workflow) through the bundled gateway.
 
-> Prefer fully local? Run `docker compose -f docker-compose.selfhosted.yml up` for a bundled `newapi` gateway you configure yourself (prebuilt-image variant: `docker-compose.selfhosted.release.yml`).
+Full walkthrough in [Configuring Models](docs/en/getting-started/configuring-models.md).
 
-| Stage                | Connected via gateway                                               |
-|----------------------|---------------------------------------------------------------------|
-| **Text / LLM**       | via OpenAI-compatible gateway (DramaClaw official key, or BYO)      |
-| **Image**            | gpt-image · nano-banana                                             |
-| **Video**            | Seedance 1.0 / 1.5 / 2.0 series · happyhorse                        |
-| **Voice-over**       | IndexTTS2                                                           |
-| **Story graph**      | Cognee                                                             |
-| **Task runtime**     | in-process inline (no Ray / Redis / Celery)                        |
-| **Storage**          | local filesystem                                                   |
+### The bundled gateway: dramaclaw-gateway
+
+The `newapi` service in `docker-compose.yml` is [**dramaclaw-gateway**](https://github.com/dramaclaw/dramaclaw-gateway), DramaClaw's own fork of [New API](https://github.com/QuantumNous/new-api). It speaks the **DC-Media** contract DramaClaw uses for image / video / audio (media roles, references, first / last frames) and converts each request into the provider's native API. Image: [`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway) on Docker Hub, pinned by `DRAMACLAW_GATEWAY_VERSION` in `.env`. It stays idle in Official mode and is only used once you switch to **Custom** or **Local + Official Hybrid**.
+
+Provider adapters shipped in the gateway today (see the [channel support matrix](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/docs/providers/en/README.md) for verification status): ComfyUI · MiniMax / Hailuo · VolcEngine Doubao / Seedance · fal.ai · Alibaba · Kling · Jimeng · Vertex AI · Gemini · OpenAI / Sora · Suno. Want another provider? The gateway has a [scaffold generator and contribution guide](https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md).
+
+| Stage                | Official mode (RelayClaw)                          | Custom / Hybrid mode (bundled gateway)                    |
+|----------------------|----------------------------------------------------|-----------------------------------------------------------|
+| **Text / LLM**       | `DC-*-LLM` models, no mapping needed               | any OpenAI-compatible chat channel                        |
+| **Image**            | gpt-image · nano-banana                            | any image channel registered in the gateway              |
+| **Video**            | Seedance 1.0 / 1.5 / 2.0 series · happyhorse       | any DC-Media video adapter (Seedance, Hailuo, Kling, ComfyUI, …) |
+| **Voice-over**       | IndexTTS2                                          | any audio channel registered in the gateway              |
+| **Story graph**      | Cognee (`DC-cognee-embedding`)                     | any embedding channel                                     |
+| **Task runtime**     | in-process inline (no Ray / Redis / Celery)        | same                                                      |
+| **Storage**          | local filesystem                                   | same                                                      |
 
 <br/>
 

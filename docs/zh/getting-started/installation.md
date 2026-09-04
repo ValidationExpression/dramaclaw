@@ -5,7 +5,7 @@
 
 > 在 macOS / Windows / Linux 上装好 DramaClaw CE 的运行环境。只想最快跑起来,直接看 [快速开始](quickstart.md);本篇覆盖各平台前置与本地开发两种装法。
 
-DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 默认起 `api` + `web`,模型默认走 DramaClaw 官方网关 RelayClaw;本机不跑模型,普通机器即可。想纯本地自建网关可用 `docker-compose.selfhosted.yml`。
+DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 起 `api` + 内置 `newapi` 网关 + `web`;模型默认走 DramaClaw 官方网关 RelayClaw,在设置页切到自定义模式后走内置网关。本机不跑模型,普通机器即可。
 
 ## 两种装法选一
 
@@ -26,7 +26,7 @@ DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 默认起 `a
 |---|---|
 | **macOS** | [Docker Desktop](https://www.docker.com/products/docker-desktop/)(Apple Silicon 与 Intel 均可) |
 | **Windows** | Docker Desktop,启用 **WSL2** 后端(Settings → General → Use WSL2) |
-| **Linux** | Docker Engine + `docker-compose-plugin`(各发行版包管理器) |
+| **Linux** | Docker Engine + `docker-compose-plugin`(各发行版包管理器) —— Docker Compose **≥ 2.24**(`docker compose version` 确认;compose 文件用了 `env_file` 长语法) |
 
 装好后:
 
@@ -34,7 +34,8 @@ DramaClaw CE 是单机服务,**无需 PostgreSQL / Redis**。Docker 默认起 `a
 git clone https://github.com/dramaclaw/dramaclaw.git
 cd dramaclaw
 cp .env.example .env        # 至少把 PROMPT_EXPORT_PASSWORD 改成非默认值
-docker compose up -d --build   # 起 api / web 两个服务
+docker compose up -d --build    # 从源码构建 api、web 与内置网关
+# 免构建：docker compose -f docker-compose.release.yml up -d   # 拉已发布镜像
 ```
 
 起好后浏览器打开 **`http://localhost:8080`**(应用界面);REST API 在 `http://localhost:8780`。进入设置 → 模型配置 → 官方渠道,粘贴 DC key 保存即用。完整步骤见 [快速开始](quickstart.md),起停/备份见 [自托管手册](../guides/self-hosting.md)。
@@ -86,7 +87,7 @@ uv sync --extra world                       # 装 torch / ml-sharp / da2 等
 npm install -g @playcanvas/splat-transform  # PLY→SOG 压缩工具
 ```
 
-Docker 端用 `--build-arg INSTALL_WORLD=1` 构建。slim base 为 CPU;GPU 加速需 CUDA base + nvidia runtime。模型权重运行时自动下载,不烤进镜像。
+Docker:`INSTALL_WORLD=1 docker compose up -d --build`。slim base 为 CPU;GPU 加速需 CUDA base + nvidia runtime。模型权重运行时自动下载,不烤进镜像。
 
 > 不做 3D/体素相关流程可忽略本节,纯文本→成片不需要它。
 
