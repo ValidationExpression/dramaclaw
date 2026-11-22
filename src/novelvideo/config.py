@@ -1052,6 +1052,7 @@ HUIMENG_IMAGE_OFFICIAL_MODEL = os.environ.get(
     "HUIMENG_IMAGE_OFFICIAL_MODEL", "image-2-official"
 )
 HUIMENG_NANOBANANA2_MODEL = os.environ.get("HUIMENG_NANOBANANA2_MODEL", "nb-2")
+NEWAPI_Z_IMAGE_MODEL = os.environ.get("NEWAPI_Z_IMAGE_MODEL", "Z-Image-local")
 SCENE_360_PROVIDER = os.environ.get("SCENE_360_PROVIDER") or NANOBANANA_PROVIDER
 SCENE_360_HUIMENG_MODEL = os.environ.get("SCENE_360_HUIMENG_MODEL", HUIMENG_IMAGE_MODEL)
 SCENE_ASSET_PROVIDER = os.environ.get("SCENE_ASSET_PROVIDER") or NANOBANANA_PROVIDER
@@ -1111,11 +1112,17 @@ IMAGE_GENERATION_SELECTIONS: dict[str, dict[str, str]] = {
         "provider": "newapi",
         "model": NEWAPI_NANOBANANA2_MODEL,
     },
+    "newapi_z_image": {
+        "label": "Z-Image-local",
+        "provider": "newapi",
+        "model": NEWAPI_Z_IMAGE_MODEL,
+    },
 }
 
 VISIBLE_IMAGE_GENERATION_SELECTION_KEYS = (
     "newapi_gpt_image2",
     "newapi_nanobanana2",
+    "newapi_z_image",
 )
 
 LEGACY_IMAGE_GENERATION_SELECTION_ALIASES = {
@@ -1127,6 +1134,8 @@ LEGACY_IMAGE_GENERATION_SELECTION_ALIASES = {
     "openrouter_nanobanana2": "newapi_nanobanana2",
     "nanobanana": "newapi_nanobanana2",
     "seedream": "newapi_gpt_image2",
+    "z_image_local": "newapi_z_image",
+    "z-image-local": "newapi_z_image",
 }
 
 # 网格生成模式配置
