@@ -42,10 +42,18 @@ function Start-LocalService {
     if (-not (Test-Path $FilePath)) {
         throw "$Name 启动文件不存在：$FilePath"
     }
-    $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments `
-        -WorkingDirectory $WorkingDirectory -PassThru -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $logs "$Name.out.log") `
-        -RedirectStandardError (Join-Path $logs "$Name.err.log")
+    $startArgs = @{
+        FilePath               = $FilePath
+        WorkingDirectory       = $WorkingDirectory
+        PassThru               = $true
+        WindowStyle            = 'Hidden'
+        RedirectStandardOutput = (Join-Path $logs "$Name.out.log")
+        RedirectStandardError  = (Join-Path $logs "$Name.err.log")
+    }
+    if ($Arguments -and $Arguments.Count -gt 0) {
+        $startArgs['ArgumentList'] = $Arguments
+    }
+    $process = Start-Process @startArgs
     Write-Host "$Name 已启动 (PID $($process.Id))，端口 $Port"
 }
 
