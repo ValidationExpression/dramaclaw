@@ -137,7 +137,7 @@ async def _generate_single_beat_video_prompt(
 
     beat_num = int(beat.get("beat_number") or 0)
     paths = PathResolver(str(output_dir), episode)
-    sketch_image_path = _first_existing_path(paths.sketch(beat_num), paths.frame(beat_num))
+    sketch_image_path = _first_existing_path(paths.frame(beat_num), paths.sketch(beat_num))
     if not sketch_image_path:
         raise VideoPromptPrerequisiteError(
             f"Beat {beat_num} 缺少草图或首帧，请先生成草图或预览"
