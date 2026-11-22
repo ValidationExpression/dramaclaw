@@ -19,8 +19,9 @@ $env:NOVELVIDEO_RUNTIME_DIR = Join-Path $root 'runtime'
 $env:NOVELVIDEO_API_URL = 'http://127.0.0.1:8780'
 $env:DRAMACLAW_API_URL = 'http://127.0.0.1:8780'
 $env:SUPERTALE_API_URL = 'http://127.0.0.1:8780'
-$env:DRAMACLAW_CHAT_BACKEND = 'claude'
-$env:CLAUDE_CLI_PATH = 'C:\Users\Mr.wang\AppData\Roaming\npm\claude.CMD'
+$env:DRAMACLAW_CHAT_BACKEND = 'codex'
+$env:CODEX_BIN = Join-Path $root '.venv\Lib\site-packages\codex_cli_bin\bin\codex.exe'
+$env:CODEBUDDY_SAFE_DELETE_ENABLED = '0'
 $env:SQLITE_PATH = (Join-Path $root 'state\newapi\one-api.db').Replace('\', '/')
 $env:PORT = '3000'
 
