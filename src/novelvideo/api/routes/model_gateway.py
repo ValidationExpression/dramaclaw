@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 import httpx
@@ -83,7 +84,10 @@ def _refresh_runtime_after_gateway_write() -> dict[str, Any]:
     """Refresh caches and invalidate the effective Agent route on every worker."""
 
     runtime = refresh_model_gateway_runtime()
-    runtime["codexAppServer"] = restart_shared_codex_runtime_when_idle()
+    # 使用 Claude 等非 Codex Agent 后端时，跳过 Codex 运行时重启，避免无谓的本地 IPC 操作
+    backend = os.environ.get("DRAMACLAW_CHAT_BACKEND", "codex").strip().lower() or "codex"
+    if backend == "codex":
+        runtime["codexAppServer"] = restart_shared_codex_runtime_when_idle()
     return runtime
 
 
