@@ -98,9 +98,22 @@ OFFICIAL_ONLY_MEDIA_MODEL_NAMES = {
 COMFY_WORKFLOW_MANAGED_CONFIG_KEY = "_dcManagedByWorkflow"
 
 
+def _is_comfyui_image_model(model: str) -> bool:
+    normalized = str(model or "").strip().lower()
+    return "z-image" in normalized or "t2i" in normalized or normalized.endswith("-image-local")
+
+
 def _default_comfyui_media_model_config(
     model: str, *, workflow_ids: list[str] | None = None
 ) -> dict[str, Any]:
+    if _is_comfyui_image_model(model):
+        return {
+            "request": {"endpoint": "images/generations", "parameters": []},
+            "resolutionOptions": ["768p", "1080p", "1440p"],
+            "ratioOptions": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+            "qualityOptions": ["standard", "high"],
+            COMFY_WORKFLOW_MANAGED_CONFIG_KEY: True,
+        }
     route_tokens = {
         token
         for value in (workflow_ids or [model])
@@ -421,8 +434,10 @@ def _build_media_model_channel_specs(
         upstream_model = (item.upstream_model or "").strip() or model
         media_type = str(item.media_type or "").strip().lower()
         if not media_type:
-            if model in {"LingShan-G2", "LingShan-NB-2"} or model.startswith(
-                "seedream-"
+            if (
+                model in {"LingShan-G2", "LingShan-NB-2"}
+                or model.startswith("seedream-")
+                or _is_comfyui_image_model(model)
             ):
                 media_type = "image"
             elif model in {"index-tts-2", "LingShan-MU-11"}:
@@ -1107,7 +1122,8 @@ async def save_custom_newapi_provider_channels(
                     media_mappings[model] = {
                         "provider": "comfyui",
                         "upstreamModel": "",
-                        "mediaType": previous.get("mediaType", "video"),
+                        "mediaType": previous.get("mediaType")
+                        or ("image" if _is_comfyui_image_model(model) else "video"),
                         "label": previous.get("label", model),
                         "enabled": previous.get("enabled", True),
                         "sortOrder": previous.get("sortOrder", 100),

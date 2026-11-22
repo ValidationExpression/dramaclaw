@@ -518,8 +518,8 @@ def parse_comfyui_channel_workflows(
                     f"ComfyUI workflow {route_id} must use exported API Format"
                 )
             route_ids.append(route_id)
-        if len(models) != 1:
-            raise ValueError("a ComfyUI channel supports one model name")
+        if not models:
+            raise ValueError("a ComfyUI channel requires at least one model name")
         return sorted(models), route_ids
 
     workflows = comfyui.get("workflow_by_model")

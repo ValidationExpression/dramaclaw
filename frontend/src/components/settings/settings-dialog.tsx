@@ -1665,6 +1665,7 @@ const MEDIA_MODEL_ROWS: readonly {
 }[] = [
   { model: "LingShan-G2", kind: "image" },
   { model: "LingShan-NB-2", kind: "image" },
+  { model: "Z-Image-local", kind: "image" },
   { model: "seedance-1.0-pro-fast", kind: "video" },
   { model: "seedance-1.0-pro", kind: "video" },
   { model: "seedance-1.5-pro", kind: "video" },
@@ -1947,6 +1948,11 @@ export function providersSupportingCapability(
 }
 
 const RECOMMENDED_MEDIA_MODELS: Readonly<Record<string, QuickProfileModel>> = {
+  "Z-Image-local": {
+    channel: "comfyui",
+    model: "Z-Image-local",
+    mediaType: "image",
+  },
   "LingShan-G2": {
     channel: "openrouter",
     model: "openai/gpt-image-2",
