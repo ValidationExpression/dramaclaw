@@ -84,6 +84,7 @@ from novelvideo.image_request_usage import (
     record_image_request,
     update_image_request_status,
 )
+from novelvideo.storage.media_errors import MediaRelayConfigError
 from novelvideo.storage.media_relay import (
     IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
     media_relay_ttl_seconds,
@@ -4232,20 +4233,29 @@ async def _relay_reference_images_for_newapi(
         return urls
 
     def upload_all() -> list[str]:
-        urls: list[str] = []
-        relay_ttl = media_relay_ttl_seconds(
-            minimum=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
-        )
-        for image_ref in reference_images:
-            urls.append(
-                upload_image_bytes(
-                    _reference_image_bytes(image_ref),
-                    ext=_image_ext(image_ref),
-                    ttl=relay_ttl,
-                    image_transform=IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
-                )
+        try:
+            urls: list[str] = []
+            relay_ttl = media_relay_ttl_seconds(
+                minimum=NEWAPI_MEDIA_INPUT_MIN_TTL_SECONDS,
             )
-        return urls
+            for image_ref in reference_images:
+                urls.append(
+                    upload_image_bytes(
+                        _reference_image_bytes(image_ref),
+                        ext=_image_ext(image_ref),
+                        ttl=relay_ttl,
+                        image_transform=IMAGE_TRANSFORM_AI_REFERENCE_JPEG,
+                    )
+                )
+            return urls
+        except MediaRelayConfigError:
+            data_urls: list[str] = []
+            for image_ref in reference_images:
+                ext = _image_ext(image_ref).lower()
+                mime = mimetypes.guess_type(f"x.{ext}")[0] or "image/png"
+                encoded = base64.b64encode(_reference_image_bytes(image_ref)).decode("ascii")
+                data_urls.append(f"data:{mime};base64,{encoded}")
+            return data_urls
 
     return await asyncio.to_thread(upload_all)
 
