@@ -87,6 +87,7 @@ scripts/start-ce.sh
 
 浏览器打开 `http://localhost:5173`，这是支持热更新的 Vite 开发界面；
 API 为 `http://localhost:8780`。脚本安装依赖后同时启动前后端，Ctrl+C 停止二者。
+脚本还会构建创建画布所需的服务端画布包（`frontend/dist-canvas-server/`）。
 `.env` 中保持 `DRAMACLAW_CHAT_BACKEND=codex`；旧配置若指定其他后端，脚本会提示修改，
 不会静默切换。
 
@@ -103,17 +104,22 @@ CODEX_BIN="$(bash scripts/setup-codex.sh)" &&
 在另一个终端进入仓库根目录，启动前端：
 
 ```bash
-cd frontend && pnpm install && pnpm dev --host 127.0.0.1 --port 5173
+cd frontend && pnpm install && pnpm run build:canvas-server && pnpm dev --host 127.0.0.1 --port 5173
 ```
+
+创建画布需要 Node.js 和这个构建包；拉取前端变更后请重新构建；如果缺少构建包，
+API 启动时会记录 `canvas_core unavailable` 警告，创建画布会返回 `canvas_core_unavailable`。
+首次画布操作启动 worker 时才会读取构建包，因此在 API 启动后构建也可以。
 
 若已有配套运行时，可在 `.env` 设置 `CODEX_BIN=/absolute/path/to/codex-dramaclaw`，
 或在单独运行下载脚本前导出该变量，以跳过下载。手动指定的文件由使用者管理：脚本检查
 能否执行，但不能据此证明它带有凭据保护补丁，请勿用官方原版 Codex CLI 替代。
 下载或校验失败时，脚本会在启动服务前退出，不会回退到其他后端。
 
-v2.1.1 Docker 构建已内置凭据保护版 Codex 0.164.0。源码和发布版 Compose 均默认选择 Codex；
-如显式设置 `DRAMACLAW_CHAT_BACKEND`，请保持为 `codex`。
-上面本地 Python 命令中的 `CODEX_BIN` 是宿主机路径，不是容器内路径。
+从当前源码构建的 Docker 镜像内置凭据保护版 Codex 0.162.0（`926a8f2`），与 Claymore Piko 共用同一构建，
+工具输出的图片保留原始尺寸。已发布的 v2.1.1 镜像内置 Codex 0.164.0。源码和发布版 Compose 均默认选择 Codex。
+如需显式选择 Codex，请设置 `DRAMACLAW_CHAT_BACKEND=codex`。
+上面本地 Python 命令中的 `CODEX_BIN` 指向宿主机上的二进制文件。
 CE 默认 `ST_EDITION=ce`、免登录单本地用户、任务进程内 inline 执行(无 Ray/Redis/Celery)。
 
 ### 3. 验证

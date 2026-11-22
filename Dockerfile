@@ -1,11 +1,12 @@
 # Codex runtime pin — the single source of truth for every image that ships the
 # credential-safe Codex App Server. The fork includes per-turn credential
 # redaction and Responses authentication; the old 0.149 patch is historical.
+# Share the Claymore Piko build that preserves tool-output image dimensions.
 # Pin the fork commit, upstream version and multi-arch index together.
 # This published index provides native linux/amd64 and linux/arm64 binaries.
-ARG CODEX_REF="27f7ff4d5c458953a9a54d48cc26ef93309cf8c9"
-ARG CODEX_VERSION="0.164.0"
-ARG CODEX_RUNTIME_IMAGE="docker.io/claymorelab/codex-dramaclaw:27f7ff4@sha256:a1c05773ea6c8449f258e3969fdfcd85649f58d62920f3c48c4fb6206114b856"
+ARG CODEX_REF="926a8f2ee9aa122eb0673928aca9a952e06e0239"
+ARG CODEX_VERSION="0.162.0"
+ARG CODEX_RUNTIME_IMAGE="docker.io/claymorelab/codex-dramaclaw:926a8f2@sha256:beb8072115732875203336ad8f7472697e0580bc22f33ef665e5c07f6901e280"
 
 FROM rust:1.95-bookworm AS vtracer-builder
 RUN cargo install --locked --version 1.0.0-alpha.3 vtracer-cli
@@ -13,6 +14,17 @@ RUN cargo install --locked --version 1.0.0-alpha.3 vtracer-cli
 # Node for the vendored OpenFilm Studio (the 「视频合成与剪辑」 editor). The distro's node is
 # older than the vendored server expects; the binary is copied into the final image.
 FROM node:22-bookworm-slim AS node-runtime
+
+# Cache canvas dependencies separately and build only the server worker inputs.
+FROM node:22-bookworm-slim AS canvas-core-build
+WORKDIR /canvas-core
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/tsconfig*.json frontend/vite.canvas-server.config.ts ./
+COPY frontend/src ./src
+COPY frontend/public/locales ./public/locales
+RUN pnpm run build:canvas-server
 
 # Studio's one runtime dependency (playwright-core), installed from the vendored lockfile so
 # the version and integrity hash match what was tested. npm is not needed at runtime.
@@ -108,6 +120,9 @@ COPY src ./src
 COPY .hermes ./.hermes
 COPY deploy ./deploy
 
+# Place the worker bundle where the editable Python package resolves it.
+COPY --from=canvas-core-build /canvas-core/dist-canvas-server /app/frontend/dist-canvas-server
+
 # Hermes Linux sandbox binary: install the vendored codex-linux-sandbox for
 # this image's target arch onto PATH, where sandbox_wrap._wrap_linux looks it
 # up (`shutil.which` / /usr/local/bin). TARGETARCH is amd64|arm64 (BuildKit),
@@ -156,6 +171,9 @@ RUN set -eux; \
     apt-get purge -y git; \
     apt-get autoremove -y; \
     rm -rf /var/lib/apt/lists/*
+
+# Fail the build if the default canvas worker pool cannot start in the image.
+RUN /app/.venv/bin/python -c "from novelvideo.freezone.canvas_core_pool import get_canvas_core_pool; pool = get_canvas_core_pool(); pool.warm(); pool.close()"
 
 # Hermes comes from this project's own fork, always. A PyPI release cannot
 # serve this image: it keeps the same version string as the fork and then drops

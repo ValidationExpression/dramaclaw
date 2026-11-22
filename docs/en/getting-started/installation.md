@@ -88,7 +88,8 @@ scripts/start-ce.sh
 
 Open `http://localhost:5173` for the Vite development UI; the API is at
 `http://localhost:8780`. The launcher installs dependencies and starts both services;
-Ctrl+C stops them. Keep `DRAMACLAW_CHAT_BACKEND=codex` in `.env`; an older setting
+Ctrl+C stops them. It also builds the server canvas bundle (`frontend/dist-canvas-server/`),
+which canvas creation needs. Keep `DRAMACLAW_CHAT_BACKEND=codex` in `.env`; an older setting
 selecting another backend produces an actionable error rather than a silent fallback.
 
 To manage the API and frontend separately, prepare the same runtime before starting
@@ -104,8 +105,13 @@ CODEX_BIN="$(bash scripts/setup-codex.sh)" &&
 In a second terminal, from the repository root:
 
 ```bash
-cd frontend && pnpm install && pnpm dev --host 127.0.0.1 --port 5173
+cd frontend && pnpm install && pnpm run build:canvas-server && pnpm dev --host 127.0.0.1 --port 5173
 ```
+
+Canvas creation needs Node.js and this bundle. Rebuild it after pulling frontend changes.
+If it is missing, the API logs a `canvas_core unavailable` warning at startup and canvas
+creation returns `canvas_core_unavailable`. The bundle is read when the first canvas
+operation starts the worker, so building it after the API has started is fine.
 
 To skip downloading, set `CODEX_BIN=/absolute/path/to/codex-dramaclaw` in `.env`
 for the launcher, or export it before the standalone setup command. An explicit binary
@@ -113,10 +119,11 @@ is operator-managed: the script checks that it runs, but cannot prove it contain
 credential-safety patches. Do not use the stock Codex CLI. A download/checksum failure
 stops startup before either service is launched and never falls back to another backend.
 
-Docker builds at v2.1.1 already include credential-safe Codex 0.164.0. Both source and
-release Compose select Codex by default; keep `DRAMACLAW_CHAT_BACKEND=codex` if setting
-it explicitly. `CODEX_BIN` in the native instructions above is a host-side path, not a
-container path.
+Docker images built from this source use credential-safe Codex 0.162.0 (`926a8f2`),
+the build shared with Claymore Piko. It preserves the dimensions of tool-output
+images. The published v2.1.1 image ships Codex 0.164.0. Both source and release Compose
+select Codex by default. Use `DRAMACLAW_CHAT_BACKEND=codex` to select it explicitly.
+`CODEX_BIN` in the native instructions above points to a binary on the host.
 CE defaults to `ST_EDITION=ce`, no-login single local user, and in-process inline task execution
 (no Ray/Redis/Celery).
 

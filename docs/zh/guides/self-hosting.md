@@ -67,7 +67,8 @@ DRAMACLAW_GATEWAY_VERSION=v1.0.0-rc.24-dramaclaw.3
 docker compose -f docker-compose.release.yml config --images
 ```
 
-v2.1.1 的发布版和源码 Compose 均默认选择镜像内置的凭据保护版 Codex 0.164.0。
+发布版和源码 Compose 均默认选择镜像内置的凭据保护版 Codex。当前源码构建使用与 Claymore Piko 共用的
+Codex 0.162.0（`926a8f2`）。已发布的 v2.1.1 镜像内置 Codex 0.164.0。
 终端环境或 `.env` 中显式设置的 `DRAMACLAW_CHAT_BACKEND` 会覆盖默认值；
 若旧配置选择了其他后端，请改为 `codex`。
 虾导后端的选择不等于模型网关模式的选择，
@@ -146,6 +147,8 @@ docker run --rm -v dramaclaw-ce_newapi-data:/data -v "$PWD":/backup alpine \
 ```
 
 ## 6. 升级
+
+**声线设计控费。** 升级前，如果你用旧环境变量控制声线设计费用，请核对所用网关的模型访问权限和预算。升级后，`VOICE_DESIGN_ENABLED=0` 将无法关闭声线设计，`VOICE_DESIGN_DAILY_LIMIT` 和 `VOICE_DESIGN_CHANNEL_DAILY_LIMIT` 也将无法限制调用次数。当前模型目录有可用的声线设计模型且网关允许调用时，生成可能产生费用。
 
 源码构建（两个 checkout 都拉）：
 
