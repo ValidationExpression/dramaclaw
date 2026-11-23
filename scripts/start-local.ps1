@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $workspace = Split-Path -Parent $root
 $gatewayExe = Join-Path $workspace 'dramaclaw-gateway\dramaclaw-gateway.exe'
+$pnpmCmd = Join-Path $env:APPDATA 'npm\pnpm.cmd'
 $logs = Join-Path $root 'state\logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
 
@@ -61,7 +62,7 @@ Start-LocalService -Name 'gateway' -Port 3000 -FilePath $gatewayExe `
     -Arguments @() -WorkingDirectory (Split-Path -Parent $gatewayExe)
 Start-LocalService -Name 'api' -Port 8780 -FilePath (Join-Path $root '.venv\Scripts\novelvideo.exe') `
     -Arguments @('api', '--host', '127.0.0.1', '--port', '8780') -WorkingDirectory $root
-Start-LocalService -Name 'frontend' -Port 5173 -FilePath 'pnpm.cmd' `
+Start-LocalService -Name 'frontend' -Port 5173 -FilePath $pnpmCmd `
     -Arguments @('dev', '--host', '127.0.0.1', '--port', '5173') -WorkingDirectory (Join-Path $root 'frontend')
 
 Write-Host '导演工作台：http://127.0.0.1:5173'
